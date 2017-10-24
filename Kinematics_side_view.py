@@ -2,7 +2,6 @@
 import pandas as pd
 import numpy as np
 import scipy.stats as st
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -30,12 +29,18 @@ def post_agg_dataframe_constructor(ingoing_dataframe_with_multiindex):
 
     return dataframe_new
 
-
 def angle_adjust_function(angle):
     if (angle>180):
         return 360-angle
     elif (angle<180):
         return angle
+
+def angle_over_time_plot(plot_data, angle_type, group_variable, y_legend, plot_title):
+    """Function plots angle over time"""
+    out_plot = sns.lmplot('day', angle_type, hue=group_variable, data=plot_data, x_jitter=0.5, ci=None)
+    out_plot.set(title=plot_title, xlabel='Day (Post SCI)', ylabel=y_legend)
+
+    return out_plot
 
 ################################################################ IMPORTING DATA & CREATING DATA SUBSETS ######################################################################
 #1. Importing data
@@ -107,13 +112,48 @@ DT_distance_summary['CI.Upper'] = DT_distance_summary['iliac_crest_height_mean_m
 
 #B. ANGLES: Adding confidence intervals
 
+
 ################################################################  STATISTICAL ANALYSIS ######################################################################
 
 ################################################################  PLOTTING DATA ######################################################################
-#Iliac crest height index over time
-#angles over time -> widening should be good
-#relation between height, angles and leg spread
+
+#1. ILIAC CREST HEIGHT OVER TIME
+
+#A. Violin plot
+iliac_crest_height_violin = sns.factorplot('day', 'iliac_crest_height', hue = 'group', data = DT_distance, kind = 'violin', palette = sns.color_palette('GnBu_d'), aspect = 2)
+iliac_crest_height_violin.set(title='Iliac Crest Height', xlabel='Days (Post SCI)', ylabel = 'Iliac Crest Height')
+
+#B. Scatter plot
+iliac_crest_height_scatter = sns.lmplot('day', 'iliac_crest_height', hue = 'group', data = DT_distance, fit_reg = False, palette = sns.color_palette('GnBu_d'), x_jitter= 0.8)
+iliac_crest_height_scatter.set(title = 'Iliac Crest Height', xlabel='Days (Post SCI)', ylabel = 'Iliac Crest Height')
+
+#2. DISTRIBUTION OF ILIAC CREST HEIGHT -> SHIFT IN DISTRIBUTIONS OVER TIME
+
+def kde_plot(plot_data, group_column, y_variable):
+    """Function plots multiple density plots in the same plot"""
+    #General plot settings
+    sns.set_style('white')
+    sns.set_style('ticks')
+
+    #Plotting data from each group, layer by layer
+    groups = plot_data[group_column].unique()
+    for group_name in groups:
+        plot_data_group = plot_data[plot_data[group_column] == group_name][y_variable]
+        sns.kdeplot(plot_data_group, shade=True, label= group_name)
+
+    #Plot out
+    sns.despine()
+    plt.show()
+
+kde_plot(DT_distance, 'group', 'iliac_crest_height')
+
+#3. ANGLES x3 OVER TIME
+angle_over_time_plot(DT_angles_aggregate, 'angle_iliac_crest_mean', 'group', 'Iliac crest angle (degrees)', 'Angle: Iliac crest')
+angle_over_time_plot(DT_angles_aggregate, 'angle_trochanter_major_mean', 'group', 'Trochanter major angle (degrees)', 'Angle: Trochanter major')
+angle_over_time_plot(DT_angles_aggregate, 'angle_knee_mean', 'group', 'Knee angle (degrees)', 'Angle: Knee')
 
 
-
-
+#4. HEXBIN PLOT + DISTRIBUTION ALONG SIDES
+    #Positiv corr: iliac crest height och iliac_crest_angle och knee angle
+    #Negativ corr: iliac crest height och trochanter major och leg spread
+    #Korrelera alla vinklar mot varandra
