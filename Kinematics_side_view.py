@@ -38,12 +38,22 @@ animal_key[category_vars] = animal_key[category_vars].apply(lambda x: x.astype('
 DT_distance = DT_distance.merge(animal_key, left_on='RH.index', right_on='RH.index')
 DT_angles = DT_angles.merge(animal_key, on='RH.index')
 
+################################################################  AGGREGATING DATA ######################################################################
+
+#A. AGGREGATING ON INDIVIDUAL LEVEL (FOR STATISTICAL ANALYSIS & PLOTTING)
+DT_distance_aggregate = DT_distance.groupby(['RH.index', 'day']).agg({'iliac_crest_height' : {'mean', 'median', 'count'}})
+
+DT_distance_aggregate.merge(animal_key, on='RH.index')
+
+
+
+
+
+#B. AGGREGATING ON TREATMENT GROUP LEVEL(FOR SUMMARY & PLOTTING)
+
+
+
 ################################################################  PLOTTING DATA ######################################################################
-
-
-
-
-
 
 
 
