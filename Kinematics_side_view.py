@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ################################################################ FUNCTIONS ######################################################################
+
+
 def post_agg_dataframe_constructor(ingoing_dataframe_with_multiindex):
     """Function adjusts dataframe after split-apply combine operation on dataframe"""
 
@@ -29,11 +31,15 @@ def post_agg_dataframe_constructor(ingoing_dataframe_with_multiindex):
 
     return dataframe_new
 
+
+
 def angle_adjust_function(angle):
     if (angle>180):
         return 360-angle
     elif (angle<180):
         return angle
+
+
 
 def angle_over_time_plot(plot_data, angle_type, group_variable, y_legend, plot_title):
     """Function plots angle over time"""
@@ -41,6 +47,24 @@ def angle_over_time_plot(plot_data, angle_type, group_variable, y_legend, plot_t
     out_plot.set(title=plot_title, xlabel='Day (Post SCI)', ylabel=y_legend)
 
     return out_plot
+
+
+def kde_plot(plot_data, group_column, y_variable):
+    """Function plots multiple density plots in the same plot"""
+    #General plot settings
+    sns.set_style('white')
+    sns.set_style('ticks')
+
+    #Plotting data from each group, layer by layer
+    groups = plot_data[group_column].unique()
+    for group_name in groups:
+        plot_data_group = plot_data[plot_data[group_column] == group_name][y_variable]
+        sns.kdeplot(plot_data_group, shade=True, label= group_name)
+
+    #Plot out
+    sns.despine()
+    plt.show()
+
 
 ################################################################ IMPORTING DATA & CREATING DATA SUBSETS ######################################################################
 #1. Importing data
@@ -128,22 +152,6 @@ iliac_crest_height_scatter = sns.lmplot('day', 'iliac_crest_height', hue = 'grou
 iliac_crest_height_scatter.set(title = 'Iliac Crest Height', xlabel='Days (Post SCI)', ylabel = 'Iliac Crest Height')
 
 #2. DISTRIBUTION OF ILIAC CREST HEIGHT -> SHIFT IN DISTRIBUTIONS OVER TIME
-
-def kde_plot(plot_data, group_column, y_variable):
-    """Function plots multiple density plots in the same plot"""
-    #General plot settings
-    sns.set_style('white')
-    sns.set_style('ticks')
-
-    #Plotting data from each group, layer by layer
-    groups = plot_data[group_column].unique()
-    for group_name in groups:
-        plot_data_group = plot_data[plot_data[group_column] == group_name][y_variable]
-        sns.kdeplot(plot_data_group, shade=True, label= group_name)
-
-    #Plot out
-    sns.despine()
-    plt.show()
 
 kde_plot(DT_distance, 'group', 'iliac_crest_height')
 
