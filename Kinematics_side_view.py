@@ -41,9 +41,23 @@ DT_angles = DT_angles.merge(animal_key, on='RH.index')
 ################################################################  AGGREGATING DATA ######################################################################
 
 #A. AGGREGATING ON INDIVIDUAL LEVEL (FOR STATISTICAL ANALYSIS & PLOTTING)
-DT_distance_aggregate = DT_distance.groupby(['RH.index', 'day']).agg({'iliac_crest_height' : {'mean', 'median', 'count'}})
+DT_distance_aggregate_raw = DT_distance.groupby(['RH.index', 'day']).agg({'iliac_crest_height' : {'mean', 'median', 'count'}})
 
-DT_distance_aggregate.merge(animal_key, on='RH.index')
+def post_agg_dataframe_constructor(ingoing_dataframe_with_multiindex):
+    number_of_indices = len(ingoing_dataframe_with_multiindex.index.names)
+
+    dataframe_new = pd.DataFrame(ingoing_dataframe_with_multiindex.values)
+    dataframe_new.columns = ingoing_dataframe_with_multiindex.columns.levels[1]
+
+    counter = 0
+    while counter < number_of_indices:
+        dataframe_new[ingoing_dataframe_with_multiindex.index.names[counter]] = ingoing_dataframe_with_multiindex.index.get_level_values(level=counter)
+        counter +=1
+
+    return dataframe_new
+
+post_agg_dataframe_constructor(DT_distance_aggregate_raw)
+
 
 
 
