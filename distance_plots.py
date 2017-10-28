@@ -30,30 +30,22 @@ class DistancePlots():
         return plot_out
 
     def correlation_plot(self, plot_var, counter_plot_var):
-        plot_out = sns.jointplot(plot_var, counter_plot_var)
-        plot_out.set_axis_labels('Iliac crest height', 'Inter knee distance')
+        plot_out = sns.kdeplot(plot_var, counter_plot_var, cmap='Blues', shade=True)
+        sns.despine()
 
         return plot_out
-        #kde version instead https://seaborn.pydata.org/generated/seaborn.kdeplot.html
-        #med full data
-        #sensitivity analysis
+        # kde version instead https://seaborn.pydata.org/generated/seaborn.kdeplot.html
+        # med full data
+        # sensitivity analysis
+        # add
 
-
-    def distribution_plot(self):
-        #http: // www.nxn.se / valent / high - contrast - stacked - distribution - plots
-        #with & without bootstraping
-        #för iliac crest & knee distance
-        #färgkoda
-
-
+    #def distribution_plot(self):
+            #http: // www.nxn.se / valent / high - contrast - stacked - distribution - plots
+            #with & without bootstraping
+            #för iliac crest & knee distance
+            #färgkoda
 
 distance_plot_instance = DistancePlots(data_side, data_side_aggregated)
 
-
-
-
-
-
-
-
+distance_plot_instance.correlation_plot(data_side_aggregated['iliac_crest_height_mean'], data_bottom_aggregated['inter_knee_distance_mean'])
 
