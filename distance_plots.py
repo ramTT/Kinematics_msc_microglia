@@ -61,32 +61,8 @@ def time_overview_simple(plot_data, x_var, y_var, group_var, y_label):
 
 time_overview_simple(data_side, 'day', 'iliac_crest_height', 'group', 'Iliac crest height')
 
+#Distribution plot
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Distribution plots
-#http://www.nxn.se/valent/high-contrast-stacked-distribution-plots
-
-#Initializing the FacetGrid object
 distr_palette = sns.cubehelix_palette(3, rot = -0.25, light=1)
 data_side['plot_group'] = data_side['day'].astype('str')+data_side['group']
 
