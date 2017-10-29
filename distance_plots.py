@@ -5,47 +5,68 @@ import seaborn as sns
 from data_import_adjust import data_side, data_side_aggregated
 from data_import_adjust import data_bottom, data_bottom_aggregated
 
-#1. Plot of iliac crest height over time
-class DistancePlots():
+#Creating color palette
+palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
+palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
+palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
-    def __init__(self, data_not_aggregated, data_aggregated):
-        self.data_not_aggregated = data_not_aggregated
-        self.data_aggregated = data_aggregated
+#Correlation plot
+def correlation_plot(plot_var, counter_plot_var):
+    sns.kdeplot(plot_var, counter_plot_var, cmap='Blues', shade=True, shade_lowest=False)
+    sns.despine(bottom=True, left=True)
 
-    def time_overview_simple(self, plot_data):
-        plot_out = sns.factorplot('day', 'iliac_crest_height_mean', hue='group', data = plot_data,
-                       palette=sns.color_palette('husl',8), size=5, aspect=4, legend_out=True)
+    plt.xticks(list(np.arange(2.2,2.8,0.05)))
+    plt.yticks(list(np.arange(1.5,3.6,0.1)))
+    plt.xlabel('Iliac crest height', size=30)
+    plt.ylabel('Inter knee distance', size=30)
+    plt.title('Covariation: Crest height & knee distance')
 
-        plot_out.set_axis_labels('Day (Post SCI)', 'Iliac crest height')
-        plot_out.set(title='Iliac crest height')
-        plot_out.add_legend(title='Study groups')
+correlation_plot(data_side_aggregated['iliac_crest_height_mean'], data_bottom_aggregated['inter_knee_distance_mean'])
 
-        return plot_out
 
-    def time_overview_full(self, plot_data):
-        plot_out = sns.lmplot('day', 'iliac_crest_height', hue='group', data = plot_data,
-                              palette=sns.color_palette('husl',8), size=5, aspect =4, legend_out=True, x_jitter=1)
+#Time overview full
+def time_overview_full(plot_data, y_var):
+    sns.lmplot('day', y_var, hue='group', data=plot_data,
+                          palette=palette_custom_1, x_jitter=1, size=6, aspect=2, legend=False)
 
-        sns.despine()
-        return plot_out
+    sns.despine(left=True, bottom=True)
 
-    def correlation_plot(self, plot_var, counter_plot_var):
-        plot_out = sns.kdeplot(plot_var, counter_plot_var, cmap='Blues', shade=True)
-        sns.despine()
+    plt.title('Iliac crest height', size=30)
+    plt.xlabel('Day (Post SCI)', size=25)
+    plt.ylabel('Iliac crest height', size=25)
+    plt.xticks(list(np.arange(0, 71, 7)), size=12)
+    plt.yticks(list(np.arange(0, 4, 0.5)), size=12)
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], loc='lower center', ncol=3, fontsize=12)
 
-        return plot_out
-        # kde version instead https://seaborn.pydata.org/generated/seaborn.kdeplot.html
-        # med full data
-        # sensitivity analysis
-        # add
+time_overview_full(data_bottom, 'inter_knee_distance')
 
-    #def distribution_plot(self):
-            #http: // www.nxn.se / valent / high - contrast - stacked - distribution - plots
-            #with & without bootstraping
-            #för iliac crest & knee distance
-            #färgkoda
 
-distance_plot_instance = DistancePlots(data_side, data_side_aggregated)
+#Time overview simple
+#def time_overview_simple(plot_data, x_var, y_var, group_var, y_label):
+#    sns.tsplot(time=x_var, value=y_var, data = plot_data)
 
-distance_plot_instance.correlation_plot(data_side_aggregated['iliac_crest_height_mean'], data_bottom_aggregated['inter_knee_distance_mean'])
+    #plt.xlabel('Day (Post SCI)', size=20)
+    #plt.ylabel(y_label, size=20)
+    #plt.xticks(list(np.arange(0,28,1)))
+    #plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], loc='lower center', ncol=3, fontsize=8)
 
+#time_overview_simple(data_side, 'day', 'iliac_crest_height', 'group', 'Iliac crest height')
+
+
+
+#Distribution plots
+xx = np.linspace(0, 4*np.pi, 512)
+df = pd.DataFrame()
+
+#http://www.nxn.se/valent/high-contrast-stacked-distribution-plots
+
+for i, ind in enumerate(df):
+    offset = 1.1 * i
+    plt.fill_between(xx, df[ind]+offset, 0*df[ind]+offset,
+                     zorder=-i,
+                     facecolor='k',
+                     edgecolor='w',
+                     lw=3)
+
+plt.figure()
+plt.fill_between(xx, 0, 1.1)
