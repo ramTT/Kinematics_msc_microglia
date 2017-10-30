@@ -26,6 +26,7 @@ class DistancePlot:
         plt.title('Covariation: Crest height & knee distance', size=30)
 
     def time_overview_full(self, plot_data, y_var, y_label):
+        """Time overview with technical replicates"""
         sns.lmplot('day', y_var, hue='group', data=plot_data,
                    palette=palette_custom_1, x_jitter=1, size=6, aspect=2, legend=False)
 
@@ -39,6 +40,7 @@ class DistancePlot:
         plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], loc='lower center', ncol=3, fontsize=12, frameon=False)
 
     def time_overview_simple(self, plot_data, x_var, y_var, group_var, y_label):
+        """Time overview with biological replicates"""
         sns.factorplot(x_var, y_var, data=plot_data, hue=group_var, aspect=3, palette=palette_custom_1, legend=False)
 
         plt.title(y_label, size=20)
@@ -48,6 +50,7 @@ class DistancePlot:
         plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], loc='lower center', ncol=3, fontsize=8, frameon=False)
 
     def distribution_plot(self, plot_data, x_var, x_label, color_palette):
+        """Distribution of technical replicates for each group and time point"""
         out_plot = sns.FacetGrid(plot_data, row='day', hue='group', aspect=20, size=1.5, palette=color_palette)
         out_plot.map(sns.kdeplot, x_var, clip_on=False, shade=True, alpha=0.8, lw=1.5, bw=0.2)
         out_plot.map(sns.kdeplot, x_var, clip_on=False, color='w', lw=2, bw=0.2)
@@ -83,5 +86,4 @@ distance_plot_instance.time_overview_simple(data_side, 'day', 'iliac_crest_heigh
 
 #5. Creating distribution plot
 distr_palette = sns.cubehelix_palette(3, rot = -0.25, light=1)
-
 distance_plot_instance.distribution_plot(data_side, 'iliac_crest_height', 'Iliac crest height', distr_palette)
