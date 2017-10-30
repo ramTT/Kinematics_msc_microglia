@@ -77,5 +77,5 @@ data_angle = side_view_instance.add_group(data_angle, data_key)
 
 #4. Aggregate data per animal
 data_side_aggregated = side_view_instance.data_aggregation_adjuster(data_side.groupby(['day', 'group']).agg({'iliac_crest_height':['mean']}))
-data_angle_aggregated = side_view_instance.data_aggregation_adjuster(data_angle.groupby(['RH.index', 'day']).agg({'angle_iliac_crest':['mean'], 'angle_trochanter_major': ['mean'], 'angle_knee': ['mean']}))
+data_angle_aggregated = side_view_instance.data_aggregation_adjuster(data_angle.groupby(['RH.index', 'day', 'group']).agg({'angle_iliac_crest':['mean'], 'angle_trochanter_major': ['mean'], 'angle_knee': ['mean']}))
 data_bottom_aggregated = bottom_view_instance.data_aggregation_adjuster(data_bottom.groupby(['day', 'group']).agg({'inter_knee_distance':['mean']}))
