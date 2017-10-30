@@ -11,6 +11,14 @@ palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
+
+
+
+
+
+
+
+
 #Correlation plot
 def correlation_plot(plot_var, counter_plot_var, palette_color):
     sns.kdeplot(plot_var, counter_plot_var, cmap=palette_color, shade=True, shade_lowest=False)
@@ -66,19 +74,15 @@ time_overview_simple(data_side, 'day', 'iliac_crest_height', 'group', 'Iliac cre
 distr_palette = sns.cubehelix_palette(3, rot = -0.25, light=1)
 data_side['plot_group'] = data_side['day'].astype('str')+data_side['group']
 
-def label(x, label, color):
-    ax = plt.gca()
-    ax.text(0, .2, 'Day',fontweight="bold",
-            ha="left", va="center", transform=ax.transAxes)
-
-plot = sns.FacetGrid(data_side, row='day', hue='group', aspect=15, size=0.5, palette=distr_palette)
+plot = sns.FacetGrid(data_side, row='day', hue='group', aspect=20, size=1.5, palette=distr_palette)
 plot.map(sns.kdeplot, 'iliac_crest_height', clip_on=False, shade=True, alpha=0.8, lw=1.5, bw=0.2)
 plot.map(sns.kdeplot,'iliac_crest_height', clip_on=False, color='w', lw=2, bw=0.2)
-plot.map(label, 'group')
 
-plot.fig.subplots_adjust(hspace=-0.25)
+for row, day in enumerate(['3', '7', '14', '21', '28']):
+    plot.axes[row,0].set_ylabel('Day '+day, size=15, fontweight='bold')
 plot.set_titles('')
 plot.set(yticks=[])
 plot.despine(left=True)
 plt.xlabel('Iliac crest height', size=20, fontweight='bold')
-plt.xticks(list(np.arange(1, 5, 0.25)))
+plt.xticks(list(np.arange(1.25, 4, 0.25)))
+plt.xlim([1.25,4])
