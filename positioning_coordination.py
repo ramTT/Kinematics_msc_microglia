@@ -48,23 +48,29 @@ def reset_base_origo(coordinate_type, data_frame):
             data = data.sub(data[coordinate_type+'_origo'], axis=0)*(-1)
             return data
 
+    adjusted_data = pd.concat([origo_adjuster(group_on_side_dict,'left'), origo_adjuster(group_on_side_dict,'right')], ignore_index=True)
 
+    return adjusted_data
 
-    return pd.concat([origo_adjuster(group_on_side_dict,'left'), origo_adjuster(group_on_side_dict,'right')], ignore_index=True)
+x_col_data = reset_base_origo('x', data_side_coordinates)
+y_col_data = reset_base_origo('y', data_side_coordinates)
+data_side_coordinates_adjusted = pd.concat([x_col_data.reset_index(drop=True), y_col_data, data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
 
-test_x = reset_base_origo('x', data_side_coordinates)
-test_y = reset_base_origo('y', data_side_coordinates)
-ass = pd.concat([test_x.reset_index(drop=True), test_y, data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
-ass = ass.melt(id_vars=['RH.index', 'day', 'group'])
+#Melting data
+data_side_coordinates_adjusted_melt = data_side_coordinates_adjusted.melt(id_vars=['RH.index', 'day', 'group'])
+data_side_coordinates_adjusted_melt['coord_type'] = data_side_coordinates_adjusted_melt['variable'].apply(lambda coord_label: coord_label[0])
+data_side_coordinates_adjusted_melt['coord_place'] = data_side_coordinates_adjusted_melt['variable'].apply(lambda coord_label: coord_label[2:])
+data_side_coordinates_adjusted_melt = data_side_coordinates_adjusted_melt.drop(['variable'], axis=1)
 
+#Casting (long->wide) coord_type
+data_side_coordinates_adjusted_melt = data_side_coordinates_adjusted_melt.pivot_table(index=['RH.index', 'day', 'group', 'coord_place'],
+                                                      values='value', columns='coord_type').reset_index()
 
-
-
-
-
-
-
-
+#Plotting
+side_overview_plot = sns.lmplot(data=data_side_coordinates_adjusted_melt, x='x', y='y', fit_reg=False, col='day',
+           hue='group')
+side_overview_plot.set_xlabels('X position', size=13, fontweight='bold')
+side_overview_plot.set_ylabels('Y position', size=13, fontweight='bold')
 
 
 
@@ -73,12 +79,15 @@ ass = ass.melt(id_vars=['RH.index', 'day', 'group'])
 
 
 #Plotting
+#Separate for each joint?
+#Ta bort origo
+#Med full data, inte bara mean(?)
+#varför SCI spegelvänd? alla punkter borde vara positiva
+#justera för displacement/force
 
-#1. Justera y -> ta hänsyn till om left eller right side
-#2. Bättre melt metod
-#3. Kombinera alla mått i en plot för bättre överblick. Med lineplot för att visa mönstret (minus iliac crest height)
 
-data_side_coordinates.head(2)
+
+
 #Iliac crest height
 sns.lmplot('x_iliac', 'y_iliac', data=data_side_coordinates, col='day', fit_reg=False,
                        hue='group', palette=palette_custom_1, markers='*')
