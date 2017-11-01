@@ -48,13 +48,28 @@ def reset_base_origo(coordinate_type, data_frame):
             data = data.sub(data[coordinate_type+'_origo'], axis=0)*(-1)
             return data
 
+
+
     return pd.concat([origo_adjuster(group_on_side_dict,'left'), origo_adjuster(group_on_side_dict,'right')], ignore_index=True)
 
 test_x = reset_base_origo('x', data_side_coordinates)
 test_y = reset_base_origo('y', data_side_coordinates)
-pd.concat([test_x, test_y], ignore_index=True)
-#merge with animal key....
-#make function more efficient...
+ass = pd.concat([test_x.reset_index(drop=True), test_y, data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
+ass = ass.melt(id_vars=['RH.index', 'day', 'group'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #Plotting
