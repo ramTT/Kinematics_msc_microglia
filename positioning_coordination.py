@@ -32,3 +32,37 @@ data_side_coordinates['RH.index'] = data_side_coordinates['RH.index'].astype('in
 
 #5. Merging with animal key
 data_side_coordinates = data_side_coordinates.merge(animal_key, on='RH.index')
+
+#6. Normalizing x & y
+def coordinate_normalizer(coord_type, data_frame):
+    adjust_cols = [col_name for col_name in data_side_coordinates.columns if col_name[0] == coord_type]
+    unadjusted_dict = dict(list(data_frame.groupby('side')))
+    unadjusted_dict['left'] = unadjusted_dict['left'][adjust_cols].sub(unadjusted_dict['left'][coord_type+'_origo'], axis=0)
+    unadjusted_dict['right'] = unadjusted_dict['right'][adjust_cols].sub(unadjusted_dict['right'][coord_type + '_origo'], axis=0)*(-1)
+
+    adjusted_dict = pd.concat(unadjusted_dict, ignore_index=True)
+
+    return adjusted_dict
+
+data_side_coordinates_adjusted = pd.concat([coordinate_normalizer('x', data_side_coordinates).reset_index(drop=True),
+           coordinate_normalizer('y', data_side_coordinates), data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
+
+#Adjusting negative y-values in sci-group
+y_columns = [col_name for col_name in data_side_coordinates_adjusted.columns if col_name[0]=='y']
+data_side_coordinates_adjusted[y_columns] = data_side_coordinates_adjusted[y_columns].applymap(lambda value: value*(-1) if value<0 else value)
+
+def melting_updating_casting(data_frame):
+    out_data = data_frame.melt(id_vars=['RH.index', 'day', 'group'])
+
+    out_data['coord_type'] = out_data['variable'].apply(lambda joint: joint[0])
+    out_data['joint_name'] = out_data['variable'].apply(lambda joint: joint[2:])
+    out_data = out_data.drop(['variable'], axis=1)
+
+    out_data = out_data.pivot_table(index=['RH.index', 'day', 'group', 'joint_name'], values='value', columns='coord_type').reset_index()
+
+    return out_data
+
+data_side_coordinates_melt = melting_updating_casting(data_side_coordinates_adjusted)
+
+#Plotting
+sns.lmplot(data=data_side_coordinates_melt[~data_side_coordinates_melt['joint_name'].isin(['knee', 'origo']) ], x='x', y='y', fit_reg=False, col='day', hue='group')
