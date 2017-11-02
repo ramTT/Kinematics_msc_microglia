@@ -31,7 +31,7 @@ data_side_coordinates['RH.index'] = data_side_coordinates['RH.index'].apply(lamb
 data_side_coordinates['RH.index'] = data_side_coordinates['RH.index'].astype('int32')
 
 #5. Merging with animal key
-data_side_coordinates = data_side_coordinates.merge(animal_key, on='RH.index')
+data_side_coordinates = data_side_coordinates.merge(animal_key[['RH.index', 'group']], on='RH.index')
 
 #6. Normalizing x & y
 def coordinate_normalizer(coord_type, data_frame):
@@ -47,7 +47,7 @@ def coordinate_normalizer(coord_type, data_frame):
 data_side_coordinates_adjusted = pd.concat([coordinate_normalizer('x', data_side_coordinates).reset_index(drop=True),
            coordinate_normalizer('y', data_side_coordinates), data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
 
-#Adjusting negative y-values in sci-group
+#7. Adjusting negative y-values in sci-group
 y_columns = [col_name for col_name in data_side_coordinates_adjusted.columns if col_name[0]=='y']
 data_side_coordinates_adjusted[y_columns] = data_side_coordinates_adjusted[y_columns].applymap(lambda value: value*(-1) if value<0 else value)
 
@@ -64,5 +64,38 @@ def melting_updating_casting(data_frame):
 
 data_side_coordinates_melt = melting_updating_casting(data_side_coordinates_adjusted)
 
-#Plotting
-sns.lmplot(data=data_side_coordinates_melt[~data_side_coordinates_melt['joint_name'].isin(['knee', 'origo']) ], x='x', y='y', fit_reg=False, col='day', hue='group')
+#8. Adding force and displacement to dataset
+data_side_coordinates_melt = data_side_coordinates_melt.merge(animal_key[['RH.index','force', 'displacement']], on='RH.index')
+
+#9. Function for calc of displacement and force index
+def indexator(data_frame, variable, day):
+    data_frame[variable+'_index'] = data_frame[variable].apply(lambda disp: disp/min(data_frame[variable]))
+    data_side_coordinates_melt.loc[day, variable+'_index'] = 1
+    return data_frame
+
+#10. Calling index function and
+data_side_coordinates_melt = data_side_coordinates_melt.set_index('day')
+data_side_coordinates_melt = list(map(lambda adjust_variable: indexator(data_side_coordinates_melt, adjust_variable, 3), ['displacement', 'force']))
+
+#map() to dataframe?
+#adjust x & y
+#group adjustments
+#hue on two parameters -> shape & color
+
+
+
+
+
+
+
+#10. Plotting - biological replicates
+side_overview_plot = sns.lmplot(data=data_side_coordinates_melt, x='x', y='y', fit_reg=False, col='day', hue='group',
+           palette=palette_custom_1, legend=False)
+side_overview_plot.set_xlabels('Distance [X]', size=10, fontweight='bold')
+side_overview_plot.set_ylabels('Distance [Y]', size=10, fontweight='bold')
+plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], ncol=3, loc='upper center')
+
+#11. Plotting - average per group
+test = data_side_coordinates_melt.groupby(['day', 'group', 'joint_name'], as_index=False)[['x', 'y']].mean()
+ass = sns.FacetGrid(test, col='day', hue='group')
+ass.map(sns.jointplot, 'x', 'y')
