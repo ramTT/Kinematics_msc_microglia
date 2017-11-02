@@ -75,8 +75,10 @@ def indexator(adjust_var):
 
 index_columns = pd.concat([indexator(variable) for variable in ['displacement', 'force']], axis=1)
 data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, index_columns], axis=1)
+#Adjusting day 3 to be not adjusted
+data_side_coordinates_melt.loc[data_side_coordinates_melt['day']==3, ['displacement_index', 'force_index']] = 1
 
-#10. Calculating adjsuted x and y coordinates using force or displacement index
+#10. Calculating adjusted x and y coordinates using force or displacement index
 def coord_adjuster(coord_type):
     multiply_variables = ['displacement_index', 'force_index']
     multiplied_coord = pd.concat([data_side_coordinates_melt[coord_type]*data_side_coordinates_melt[element] for element in multiply_variables], axis=1)
@@ -85,21 +87,21 @@ def coord_adjuster(coord_type):
 
 data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, coord_adjuster('x'), coord_adjuster('y')], axis=1)
 
-
+#add d35
+#select groups
 
 
 
 
 
 #10. Plotting - biological replicates
-#hue on two parameters -> shape & color
-side_overview_plot = sns.lmplot(data=data_side_coordinates_melt, x='x', y='y', fit_reg=False, col='day', hue='group',
+side_overview_plot = sns.lmplot(data = data_side_coordinates_melt, x='displacement_index_x', y='displacement_index_y', col='day', fit_reg=False, hue='group',
            palette=palette_custom_1, legend=False)
 side_overview_plot.set_xlabels('Distance [X]', size=10, fontweight='bold')
 side_overview_plot.set_ylabels('Distance [Y]', size=10, fontweight='bold')
-plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], ncol=3, loc='upper center')
+plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], ncol=3, frameon=False)
 
 #11. Plotting - average per group
-test = data_side_coordinates_melt.groupby(['day', 'group', 'joint_name'], as_index=False)[['x', 'y']].mean()
-ass = sns.FacetGrid(test, col='day', hue='group')
-ass.map(sns.jointplot, 'x', 'y')
+average_data = data_side_coordinates_melt.groupby(['day', 'group', 'joint_name'], as_index=False).mean()
+sns.lmplot(data = average_data, x='displacement_index_x', y='displacement_index_y', col='day', fit_reg=False, hue='group',
+           palette=palette_custom_1, legend=False)
