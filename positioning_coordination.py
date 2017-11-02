@@ -67,20 +67,23 @@ data_side_coordinates_melt = melting_updating_casting(data_side_coordinates_adju
 #8. Adding force and displacement to dataset
 data_side_coordinates_melt = data_side_coordinates_melt.merge(animal_key[['RH.index','force', 'displacement']], on='RH.index')
 
-#9. Function for calc of displacement and force index
-def indexator(data_frame, variable, day):
-    data_frame[variable+'_index'] = data_frame[variable].apply(lambda disp: disp/min(data_frame[variable]))
-    data_side_coordinates_melt.loc[day, variable+'_index'] = 1
-    return data_frame
+#9. Calculating force and displacement index and adding back to original dataframe
+def indexator(adjust_var):
+    out_series = data_side_coordinates_melt[adjust_var].map(lambda value: value/min(data_side_coordinates_melt[adjust_var]))
+    out_series.name = adjust_var+'_index'
+    return out_series
 
-#10. Calling index function and
-data_side_coordinates_melt = data_side_coordinates_melt.set_index('day')
-data_side_coordinates_melt = list(map(lambda adjust_variable: indexator(data_side_coordinates_melt, adjust_variable, 3), ['displacement', 'force']))
+index_columns = pd.concat([indexator(variable) for variable in ['displacement', 'force']], axis=1)
+data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, index_columns], axis=1)
 
-#map() to dataframe?
-#adjust x & y
-#group adjustments
-#hue on two parameters -> shape & color
+#10. Calculating adjsuted x and y coordinates using force or displacement index
+def coord_adjuster(coord_type):
+    multiply_variables = ['displacement_index', 'force_index']
+    multiplied_coord = pd.concat([data_side_coordinates_melt[coord_type]*data_side_coordinates_melt[element] for element in multiply_variables], axis=1)
+    multiplied_coord.columns = [multiply_variables[0]+'_'+coord_type, multiply_variables[1]+'_'+coord_type]
+    return multiplied_coord
+
+data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, coord_adjuster('x'), coord_adjuster('y')], axis=1)
 
 
 
@@ -89,6 +92,7 @@ data_side_coordinates_melt = list(map(lambda adjust_variable: indexator(data_sid
 
 
 #10. Plotting - biological replicates
+#hue on two parameters -> shape & color
 side_overview_plot = sns.lmplot(data=data_side_coordinates_melt, x='x', y='y', fit_reg=False, col='day', hue='group',
            palette=palette_custom_1, legend=False)
 side_overview_plot.set_xlabels('Distance [X]', size=10, fontweight='bold')
