@@ -105,7 +105,3 @@ over_time_plot(instance_iliac.data_frame, 'iliac_crest_height_adjust', 'Iliac cr
     #1 for each group -> raw data
     #2 for each group -> biological replicates
     #1 lowess for data
-
-
-
-

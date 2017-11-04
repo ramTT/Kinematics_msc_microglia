@@ -87,21 +87,14 @@ def coord_adjuster(coord_type):
 
 data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, coord_adjuster('x'), coord_adjuster('y')], axis=1)
 
-#add d35
-#select groups
-
-
-
-
-
 #10. Plotting - biological replicates
-side_overview_plot = sns.lmplot(data = data_side_coordinates_melt, x='displacement_index_x', y='displacement_index_y', col='day', fit_reg=False, hue='group',
-           palette=palette_custom_1, legend=False)
+side_overview_plot = sns.lmplot(data = data_side_coordinates_melt, x='displacement_index_x', y='displacement_index_y', hue='group',
+                                   legend=False, col='day', fit_reg=False, palette=palette_custom_1)
 side_overview_plot.set_xlabels('Distance [X]', size=10, fontweight='bold')
 side_overview_plot.set_ylabels('Distance [Y]', size=10, fontweight='bold')
-plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], ncol=3, frameon=False)
 
 #11. Plotting - average per group
 average_data = data_side_coordinates_melt.groupby(['day', 'group', 'joint_name'], as_index=False).mean()
-sns.lmplot(data = average_data, x='displacement_index_x', y='displacement_index_y', col='day', fit_reg=False, hue='group',
-           palette=palette_custom_1, legend=False)
+average_data['RH.index'] = average_data['RH.index'].astype('object')
+sns.lmplot(data = average_data, x='displacement_index_x', y='displacement_index_y', col='day', hue='group',
+           fit_reg=False, palette=palette_custom_1)
