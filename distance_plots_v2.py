@@ -27,8 +27,8 @@ class DistancePlot:
         keys = dictionary.keys()
 
         def normalizer(dict, dict_key):
-            #divisor = dict[dict_key].loc[dict[dict_key]['day'] == 3, variable].mean()
-            divisor = self.data_frame.min()[variable]
+            divisor = dict[dict_key].loc[dict[dict_key]['day'] == 3, variable].mean()
+            #divisor = self.data_frame.min()[variable]
             dict[dict_key][variable] = dict[dict_key][variable] / divisor
             return dict[dict_key]
 
@@ -62,7 +62,6 @@ instance_iliac.measure_adjuster('iliac_crest_height')
 instance_iliac.indexator('iliac_crest_height_adjust')
 instance_iliac.column_cleanup(['RH.index', 'day', 'group', 'iliac_crest_height_adjust'])
 
-
 data_aggregate_iliac = instance_iliac.aggregate_per_animal()
 data_summary_iliac = instance_iliac.summary()
 
@@ -89,19 +88,45 @@ palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
-#4. Plotting
-def over_time_plot(data_set, y_variable, y_label):
-    #sns.stripplot(data = data_set, x='day', y=y_variable, hue='group', size=15, palette=palette_custom_1,
-    #              dodge=True, jitter=0.25, alpha=0.5, marker='o')
-    sns.regplot(data = data_set, x='day', y=y_variable, hue='group')
-    sns.despine(left=True, top=True)
-    plt.xlabel('Day (Post SCI)', size=20, fontweight='bold')
-    plt.ylabel(y_label, size=20, fontweight='bold')
-    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], loc='lower center', frameon=False, ncol=3, fontsize=12)
+#4. Plotting raw data over time
+def plot_raw_data_overtime(data_frame, y_variable, y_label):
+    sns.stripplot(data = data_frame, x='day', y= y_variable, hue='group', dodge=True,palette=palette_custom_1,
+                  jitter=0.3, alpha=0.7)
+    sns.despine(left=True)
+    plt.xlabel('Day (Post SCI)', size=15, fontweight='bold')
+    plt.ylabel(y_label, size=15, fontweight='bold')
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center')
+    plt.yticks(list(np.arange(0.75,3.5,0.25)))
 
-over_time_plot(instance_iliac.data_frame, 'iliac_crest_height_adjust', 'Iliac crest height index')
+plot_raw_data_overtime(instance_iliac.data_frame, 'iliac_crest_height_adjust', 'Iliac crest height')
+#plt.savefig('iliac_crest_raw_overtime.jpg', dpi=1000)
+plot_raw_data_overtime(instance_knee.data_frame, 'inter_knee_distance_adjust', 'Inter knee distance')
+#plt.savefig('inter_knee_raw_overtime.jpg', dpi=1000)
 
-#regplot
-    #1 for each group -> raw data
-    #2 for each group -> biological replicates
-    #1 lowess for data
+#5. Plotting aggregate data over time
+def plot_aggregate_data_overtime(data_frame, y_variable, y_label):
+    sns.lmplot(data=data_frame, x='day', y=y_variable, hue='group', palette=palette_custom_1,
+                  x_jitter=1, lowess=True, legend_out=False, scatter_kws={'alpha':0.7, 's':200}, markers=['p','o','^'],
+               size=5, aspect=2)
+    sns.despine(left=True)
+    plt.xlabel('Day (Post SCI)', size=12, fontweight='bold')
+    plt.ylabel(y_label, size=12, fontweight='bold')
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center')
+    plt.yticks(list(np.arange(1, 3, 0.25)))
+    plt.xticks(list(np.arange(0,35,7)))
+
+plot_aggregate_data_overtime(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index')
+#plt.savefig('iliac_crest_aggregate_overtime.jpg', dpi=1000)
+plot_aggregate_data_overtime(data_aggregate_knee, 'inter_knee_distance_adjust', 'Inter knee distance index')
+#plt.savefig('inter_knee_aggregate_overtime.jpg', dpi=1000)
+
+#6. Plotting correlations
+#A. Creating dictionaries
+dictionary_iliac = dict(list(instance_iliac.data_frame.groupby(['RH.index', 'day'])))
+dictionary_knee = dict(list(instance_knee.data_frame.groupby(['RH.index', 'day'])))
+#B. Boostraping from each RH.index and day (n=10)
+corr_data_iliac = pd.concat(list(map(lambda key: dictionary_iliac[key].sample(n=10), list(dictionary_knee.keys()))), axis=0, ignore_index=True)
+corr_data_knee = pd.concat(list(map(lambda key: dictionary_knee[key].sample(n=10), list(dictionary_knee.keys()))), axis=0, ignore_index=True)
+#C. Binding data by columns
+corr_plot_data = pd.concat([corr_data_iliac, corr_data_knee.drop(['RH.index', 'day', 'group'], axis=1)], axis=1)
+
