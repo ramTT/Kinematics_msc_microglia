@@ -130,3 +130,19 @@ corr_data_knee = pd.concat(list(map(lambda key: dictionary_knee[key].sample(n=10
 #C. Binding data by columns
 corr_plot_data = pd.concat([corr_data_iliac, corr_data_knee.drop(['RH.index', 'day', 'group'], axis=1)], axis=1)
 
+def correlation_plot(data_set):
+    #sns.lmplot(data=data_set, x='iliac_crest_height_adjust', y='inter_knee_distance_adjust', hue='group', legend=False,
+    #           palette=palette_custom_1, size=6, aspect=1.5, markers=['p','o','^'], scatter_kws={'alpha':0.7, 's':100}, ci=95)
+    sns.jointplot(data=data_set, x='iliac_crest_height_adjust', y='inter_knee_distance_adjust', kind='reg')
+
+    plt.xlabel('Iliac crest height index', size=15, fontweight='bold')
+    plt.ylabel('Inter knee distance index', size=15, fontweight='bold')
+
+[correlation_plot(pd.DataFrame(dict(my_data))) for my_data in list(corr_plot_data.groupby('group'))]
+
+#annotate stats.pearson, R-square
+#1 jointplot separat ritad för resp grupp
+#extrahera färger från paletten -> addera till loop
+
+
+#Distribution plot
