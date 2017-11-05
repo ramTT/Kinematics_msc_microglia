@@ -112,7 +112,7 @@ def plot_aggregate_data_overtime(data_frame, y_variable, y_label):
     plt.xlabel('Day (Post SCI)', size=12, fontweight='bold')
     plt.ylabel(y_label, size=12, fontweight='bold')
     plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center')
-    plt.yticks(list(np.arange(1, 3, 0.25)))
+    #plt.yticks(list(np.arange(1, 3, 0.25)))
     plt.xticks(list(np.arange(0,35,7)))
 
 plot_aggregate_data_overtime(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index')
@@ -130,19 +130,38 @@ corr_data_knee = pd.concat(list(map(lambda key: dictionary_knee[key].sample(n=10
 #C. Binding data by columns
 corr_plot_data = pd.concat([corr_data_iliac, corr_data_knee.drop(['RH.index', 'day', 'group'], axis=1)], axis=1)
 
-def correlation_plot(data_set):
-    #sns.lmplot(data=data_set, x='iliac_crest_height_adjust', y='inter_knee_distance_adjust', hue='group', legend=False,
-    #           palette=palette_custom_1, size=6, aspect=1.5, markers=['p','o','^'], scatter_kws={'alpha':0.7, 's':100}, ci=95)
-    sns.jointplot(data=data_set, x='iliac_crest_height_adjust', y='inter_knee_distance_adjust', kind='reg')
-
+def correlation_plot(data_set, plot_color, plot_title):
+    sns.jointplot(data=data_set, x='iliac_crest_height_adjust', y='inter_knee_distance_adjust', kind='reg',
+                  color=plot_color, size=10)
+    sns.despine(left=True, bottom=True)
     plt.xlabel('Iliac crest height index', size=15, fontweight='bold')
     plt.ylabel('Inter knee distance index', size=15, fontweight='bold')
+    plt.title(plot_title, size=15, fontweight='bold')
 
-[correlation_plot(pd.DataFrame(dict(my_data))) for my_data in list(corr_plot_data.groupby('group'))]
+correlation_plot(corr_plot_data[corr_plot_data['group']=='sci'], palette_custom_1[0], 'SCI')
+#plt.savefig('corr_plot_sci.jpg', dpi=1000)
+correlation_plot(corr_plot_data[corr_plot_data['group']=='sci_medium'], palette_custom_1[1], 'SCI+Medium')
+#plt.savefig('corr_plot_sci_medium.jpg', dpi=1000)
+correlation_plot(corr_plot_data[corr_plot_data['group']=='sci_msc'], palette_custom_1[2], 'SCI+Medium+IDmBMSCs')
+#plt.savefig('corr_plot_sci_msc.jpg', dpi=1000)
 
-#annotate stats.pearson, R-square
-#1 jointplot separat ritad för resp grupp
-#extrahera färger från paletten -> addera till loop
+#7. Plotting distributions
+def distribution_plot(plot_data, x_var, x_label, color_palette, x_limits):
+    out_plot = sns.FacetGrid(plot_data, row='day', hue='group', aspect=4, size=1.5, palette=color_palette)
+    out_plot.map(sns.kdeplot, x_var, clip_on=False, shade=True, alpha=0.5, lw=1.5, bw=0.2, kernel='cos')
+    out_plot.map(sns.kdeplot, x_var, clip_on=False, color='w', lw=2, bw=0.2, kernel='cos')
 
+    for row, day in enumerate(['3', '7', '14', '21', '28']):
+        out_plot.axes[row, 0].set_ylabel('Day ' + day, size=15, fontweight='bold')
 
-#Distribution plot
+    out_plot.set_titles('')
+    out_plot.set(yticks=[])
+    out_plot.despine(left=True)
+    plt.xlabel(x_label, size=20, fontweight='bold')
+    plt.xticks(list(np.arange(0.5, 2.25, 0.25)))
+    plt.xlim(x_limits)
+
+distribution_plot(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index', palette_custom_1, [0.7,2])
+#plt.savefig('distribution_plot_iliac.jpg', dpi=1000)
+distribution_plot(data_aggregate_knee, 'inter_knee_distance_adjust', 'Inter knee distance index', palette_custom_1, [0.4,2.5])
+#plt.savefig('distribution_plot_knee.jpg', dpi=1000)
