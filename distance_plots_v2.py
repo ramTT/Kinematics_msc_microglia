@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-class DistancePlot:
+class KinematicsDataAdjuster:
 
     def __init__(self, data_frame):
         self.data_frame = data_frame
@@ -22,13 +22,15 @@ class DistancePlot:
         self.data_frame.loc[self.data_frame['day']==3, 'adjustor_column'] = 1
         self.data_frame[adjust_variable+'_adjust'] = self.data_frame[adjust_variable]*self.data_frame['adjustor_column']
 
-    def indexator(self, variable):
+    def indexator(self, variable, denominator):
         dictionary = dict(list(self.data_frame.groupby('RH.index')))
         keys = dictionary.keys()
 
         def normalizer(dict, dict_key):
-            divisor = dict[dict_key].loc[dict[dict_key]['day'] == 3, variable].mean()
-            #divisor = self.data_frame.min()[variable]
+            if(denominator=='day3mean'):
+                divisor = dict[dict_key].loc[dict[dict_key]['day'] == 3, variable].mean()
+            elif(denominator=='day3min'):
+                divisor = self.data_frame.min()[variable]
             dict[dict_key][variable] = dict[dict_key][variable] / divisor
             return dict[dict_key]
 
@@ -54,12 +56,12 @@ keep_columns_iliac = ['RH.index', 'day', 'Dist [cm].1', 'Dist [cm].2', 'Dist [cm
 new_column_names_iliac = {'Dist [cm].1':'iliac_crest_height', 'Dist [cm].2':'iliac_crest_2_trochanter_major', 'Dist [cm].3':'trochanter_major_2_knee',
                                            'Dist [cm].4':'knee_2_ankle', 'Dist [cm].5':'ankle_2_toe'}
 #B. Creating instance, calling methods
-instance_iliac = DistancePlot(data_set_iliac)
+instance_iliac = KinematicsDataAdjuster(data_set_iliac)
 instance_iliac.column_adjuster(keep_columns_iliac, new_column_names_iliac)
 instance_iliac.key_data_adder(animal_key)
 instance_iliac.measure_adjuster('iliac_crest_height')
 
-instance_iliac.indexator('iliac_crest_height_adjust')
+instance_iliac.indexator('iliac_crest_height_adjust', 'day3min')
 instance_iliac.column_cleanup(['RH.index', 'day', 'group', 'iliac_crest_height_adjust'])
 
 data_aggregate_iliac = instance_iliac.aggregate_per_animal()
@@ -73,11 +75,11 @@ keep_columns_knee = ['Dist [cm].1', 'RH.index', 'day']
 new_column_names_knee = {'Dist [cm].1': 'inter_knee_distance'}
 
 #B. Creating instance, calling methods
-instance_knee = DistancePlot(data_set_knee)
+instance_knee = KinematicsDataAdjuster(data_set_knee)
 instance_knee.column_adjuster(keep_columns_knee, new_column_names_knee)
 instance_knee.key_data_adder(animal_key)
 instance_knee.measure_adjuster('inter_knee_distance')
-instance_knee.indexator('inter_knee_distance_adjust')
+instance_knee.indexator('inter_knee_distance_adjust', 'day3mean')
 instance_knee.column_cleanup(['RH.index', 'day', 'group', 'inter_knee_distance_adjust'])
 
 data_aggregate_knee = instance_knee.aggregate_per_animal()
@@ -158,10 +160,10 @@ def distribution_plot(plot_data, x_var, x_label, color_palette, x_limits):
     out_plot.set(yticks=[])
     out_plot.despine(left=True)
     plt.xlabel(x_label, size=20, fontweight='bold')
-    plt.xticks(list(np.arange(0.5, 2.25, 0.25)))
+    plt.xticks(list(np.arange(0.5, 5, 0.25)))
     plt.xlim(x_limits)
 
-distribution_plot(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index', palette_custom_1, [0.7,2])
+distribution_plot(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index', palette_custom_1, [0.7,3])
 #plt.savefig('distribution_plot_iliac.jpg', dpi=1000)
 distribution_plot(data_aggregate_knee, 'inter_knee_distance_adjust', 'Inter knee distance index', palette_custom_1, [0.4,2.5])
 #plt.savefig('distribution_plot_knee.jpg', dpi=1000)

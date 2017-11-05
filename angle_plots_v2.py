@@ -3,80 +3,82 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-from data_import_adjust import data_side, data_side_aggregated
-from data_import_adjust import data_bottom, data_bottom_aggregated
-from data_import_adjust import data_angle, data_angle_aggregated_export
+#1. Importing class KinematicsDataAdjuster
+from distance_plots_v2 import KinematicsDataAdjuster
 
-class AnglePlots:
+#2. Importing data & creating variables
+animal_key = pd.read_csv('animal_key_kinematics.csv')
+data_set_angle = pd.read_csv('merge_side_view.csv')
 
-    def angle_overtime_plot_full(self, plot_data):
-        plot_out = sns.lmplot('day', 'value', palette=palette_custom_1, hue='group', col='variable', data=plot_data, x_jitter=0.5, fit_reg=False,
-                   legend=False)
+keep_columns_angle = ['RH.index', 'side', 'day','Ang [deg].1', 'Ang [deg].2', 'Ang [deg].3', 'Ang [deg].4']
+new_column_names_angle = {'Ang [deg].1':'angle_iliac_crest', 'Ang [deg].2':'angle_trochanter_major', 'Ang [deg].3':'angle_knee',
+                                        'Ang [deg].4':'angle_ankle'}
 
-        sns.despine(left=True)
-        plot_out.set_xlabels('Day (Post SCI)', size=15, fontweight='bold')
-        plot_out.set_ylabels('Angle (degrees)', size=15, fontweight='bold')
-        #plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center')
+#3. Creating instance, calling methods
+instance_angle = KinematicsDataAdjuster(data_set_angle)
+instance_angle.column_adjuster(keep_columns_angle, new_column_names_angle)
+instance_angle.data_frame.iloc[:,3:] = instance_angle.data_frame.iloc[:,3:].applymap(lambda angle: (360-angle) if(angle>180) else angle)
+instance_angle.key_data_adder(animal_key)
+[instance_angle.measure_adjuster(col_name) for col_name in list(instance_angle.data_frame.columns[3:7])]
+[instance_angle.indexator(col_name,'day3mean') for col_name in list(instance_angle.data_frame.columns[11:])]
+keep_cols = ['RH.index', 'day', 'group']
+keep_cols.extend(list(instance_angle.data_frame.columns[11:]))
+instance_angle.column_cleanup(keep_cols)
 
-    def angle_overtime_plot_simple(self, plot_data):
-        plot_out = sns.factorplot('day', 'value', hue='group', col='variable', palette=palette_custom_1, data=plot_data,
-                                  legend=False)
-        plot_out.set_axis_labels('Day (Post SCI)', 'Angle (degrees)')
-        plot_out.set_titles('{col_name}')
-        sns.despine(left=True)
+data_aggregate_angle = instance_angle.aggregate_per_animal()
+data_summary_angle = instance_angle.summary()
 
-    def angle_correlation_plot(self, plot_data, x_var, y_var, x_label, y_label):
-        sns.lmplot(x_var, y_var, hue='group', data=plot_data, palette=palette_custom_1, size=5, aspect=2, legend=False)
-        sns.despine()
-
-        plt.xlabel(x_label, size=15, fontweight='bold')
-        plt.ylabel(y_label, size=15, fontweight='bold')
-        plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, loc='lower center', ncol=3)
-        plt.yticks(list(np.arange(-5, 175, 25)))
-
-#1. Defining color palette
+#4. Defining color palette for plotting
 palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
-#2. Subsetting relevant data
-data_angle_subset = data_angle.drop(['angle_ankle'], axis=1)
+#5. Plotting raw data (angles) over time
+def plot_raw_data_over_time(plot_data, y_variable, y_label):
+    sns.stripplot(data = plot_data, x='day', y=y_variable, palette=palette_custom_1, jitter =0.3,
+                  hue='group', dodge=True, alpha=0.7, size=10)
+    sns.despine(left=True)
+    plt.ylabel(y_label, size=15, fontweight='bold')
+    plt.xlabel('Day (Post SCI)', size=15, fontweight='bold')
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center', fontsize=6)
+    plt.yticks(list(np.arange(0, 3, 0.25)))
 
-#3. Adjusting angles
-adjust_cols = ['angle_iliac_crest', 'angle_trochanter_major', 'angle_knee']
-data_angle_subset.loc[:,adjust_cols] = data_angle_subset.loc[:,adjust_cols].applymap(lambda angle: (360-angle) if(angle>180) else angle)
+plot_raw_data_over_time(data_aggregate_angle, 'angle_iliac_crest_adjust', 'Iliac crest angle index')
+plot_raw_data_over_time(data_aggregate_angle, 'angle_trochanter_major_adjust', 'Trochanter major angle index')
+plot_raw_data_over_time(data_aggregate_angle, 'angle_knee_adjust', 'Knee angle index')
+plot_raw_data_over_time(data_aggregate_angle, 'angle_ankle_adjust', 'Ankle angle index')
 
-#4. Melting data
-data_angle_subset_melt = data_angle_subset.melt(id_vars=['RH.index', 'side', 'day', 'group'])
-data_angle_aggregated_melt = data_angle_aggregated_export.melt(id_vars=['RH.index', 'day', 'group'])
+#6. Plotting aggregate data (angles) over time
+def plot_aggregate_data_overtime(data_frame, y_variable, y_label):
+    sns.lmplot(data=data_frame, x='day', y=y_variable, hue='group', palette=palette_custom_1,
+                  x_jitter=1, lowess=True, legend_out=False, scatter_kws={'alpha':0.7, 's':200}, markers=['p','o','^'],
+               size=5, aspect=2)
+    sns.despine(left=True)
+    plt.xlabel('Day (Post SCI)', size=12, fontweight='bold')
+    plt.ylabel(y_label, size=12, fontweight='bold')
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, ncol=3, loc='lower center')
+    #plt.yticks(list(np.arange(1, 3, 0.25)))
+    plt.xticks(list(np.arange(0, 35, 7)))
 
-#5. Creating instance of class Angleplots
-angle_plot_instance = AnglePlots()
+plot_aggregate_data_overtime(data_aggregate_angle, 'angle_iliac_crest_adjust', 'Iliac crest angle index')
+plot_aggregate_data_overtime(data_aggregate_angle, 'angle_trochanter_major_adjust', 'Trochanter major angle index')
+plot_aggregate_data_overtime(data_aggregate_angle, 'angle_knee_adjust', 'Knee angle index')
+plot_aggregate_data_overtime(data_aggregate_angle, 'angle_ankle_adjust', 'Ankle angle index')
 
-#6. Time overview simple plot
-angle_plot_instance.angle_overtime_plot_simple(data_angle_aggregated_melt)
+#7. Plotting correlations
+#A. Adding iliac crest height to angle data
+from distance_plots_v2 import instance_iliac
+corr_plot_data = pd.concat([instance_angle.data_frame, instance_iliac.data_frame['iliac_crest_height_adjust']], axis=1)
 
-#7. Time overview full plot
-angle_plot_instance.angle_overtime_plot_full(data_angle_subset_melt)
+def correlation_plot(data_set, x_var, y_var, plot_color):
+    sns.jointplot(data=data_set, x=x_var, y=y_var, kind='reg', color=plot_color, size=10)
+    sns.despine(left=True, bottom=True)
+    sns.set_style('white')
+    plt.xlabel(' '.join(x_var.split('_')), size=15, fontweight='bold')
+    plt.ylabel(' '.join(y_var.split('_')), size=15, fontweight='bold')
 
-#8. Angle-to-angle correlation plots
-angle_plot_instance.angle_correlation_plot(data_angle_subset, 'angle_iliac_crest', 'angle_trochanter_major', 'Angle iliac crest', 'Angle trochanter major')
-angle_plot_instance.angle_correlation_plot(data_angle_subset, 'angle_trochanter_major', 'angle_knee', 'Angle trochanter major', 'Angle knee')
-
-#9. Iliac crest height to angle correlation plots
-data_angle_side = pd.concat([data_side['iliac_crest_height'], data_angle_subset], axis=1)
-angle_plot_instance.angle_correlation_plot(data_angle_side, 'iliac_crest_height', 'angle_iliac_crest', 'Iliac crest height', 'Iliac crest angle')
-angle_plot_instance.angle_correlation_plot(data_angle_side, 'iliac_crest_height', 'angle_knee', 'Iliac crest height', 'Knee angle')
-
-#10. Inter knee distance to angle plots
-#10A. Split datasets
-angle_dictionary = dict(list(data_angle_subset.groupby(['RH.index', 'day'], as_index=False)))
-bottom_dictionary = dict(list(data_bottom.groupby(['RH.index', 'day'])))
-#10B. Random sample with replacement from each data subset
-data_angle_reduced = pd.concat([angle_dictionary[key].sample(n=15, replace=True) for key in bottom_dictionary], ignore_index=True)
-data_bottom_reduced = pd.concat([bottom_dictionary[key].sample(n=15, replace=True) for key in bottom_dictionary], ignore_index=True)
-#10C. Row binding reduced/sampled datasets
-data_angle_bottom_merge = pd.concat([data_angle_reduced, data_bottom_reduced.drop(['RH.index', 'day', 'group'], axis=1)], axis=1)
-#10D. Creating correlation plots
-angle_plot_instance.angle_correlation_plot(data_angle_bottom_merge, 'inter_knee_distance', 'angle_trochanter_major', 'Inter knee distance', 'Trochanter major angle')
-angle_plot_instance.angle_correlation_plot(data_angle_bottom_merge, 'inter_knee_distance', 'angle_knee', 'Inter knee distance', 'Knee angle')
+correlation_plot(corr_plot_data, 'angle_iliac_crest_adjust', 'iliac_crest_height_adjust', palette_custom_1[0])
+correlation_plot(corr_plot_data, 'angle_trochanter_major_adjust', 'iliac_crest_height_adjust', palette_custom_1[1])
+correlation_plot(corr_plot_data, 'angle_knee_adjust', 'iliac_crest_height_adjust', palette_custom_1[2])
+correlation_plot(corr_plot_data, 'angle_ankle_adjust', 'iliac_crest_height_adjust', palette_custom_1[2])
+#split per group
