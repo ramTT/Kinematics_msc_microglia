@@ -92,25 +92,37 @@ instance_position.data_frame_melt.loc[instance_position.data_frame_melt['day']==
 #G. Adjusting x -and y coordinates using displacement
 [instance_position.adjustor(element) for element in ['x', 'y']]
 
-
-
-
-
-
-
-#0. Defining color palette
+#3. Defining color palette
 palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
-#10. Plotting - biological replicates
-side_overview_plot = sns.lmplot(data = data_side_coordinates_melt, x='displacement_index_x', y='displacement_index_y', hue='group',
+#4. Plotting - biological replicates
+side_overview_plot = sns.lmplot(data = instance_position.data_frame_melt, x='x_adjust', y='y_adjust', hue='group',
                                    legend=False, col='day', fit_reg=False, palette=palette_custom_1)
-side_overview_plot.set_xlabels('Distance [X]', size=10, fontweight='bold')
-side_overview_plot.set_ylabels('Distance [Y]', size=10, fontweight='bold')
+side_overview_plot.set_xlabels('Distance [x]', size=10, fontweight='bold')
+side_overview_plot.set_ylabels('Distance [y]', size=10, fontweight='bold')
 
 #11. Plotting - average per group
-average_data = data_side_coordinates_melt.groupby(['day', 'group', 'joint_name'], as_index=False).mean()
+average_data = instance_position.data_frame_melt.groupby(['day', 'group', 'joint_name'], as_index=False).mean()
 average_data['RH.index'] = average_data['RH.index'].astype('object')
-sns.lmplot(data = average_data, x='displacement_index_x', y='displacement_index_y', col='day', hue='group',
-           fit_reg=False, palette=palette_custom_1)
+average_data = average_data[average_data['joint_name']!='origo']
+
+test = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['iliac', 'trochanter'])]
+test2 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['trochanter', 'knee'])]
+test3 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['knee', 'ankle'])]
+test4 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['ankle', 'toe'])]
+
+plt.plot('x_adjust', 'y_adjust', data= test, marker='o', color='r', linewidth=5, alpha=0.6, ms=20)
+plt.plot('x_adjust', 'y_adjust', data= test2, marker='o', color='r')
+plt.plot('x_adjust', 'y_adjust', data= test3, marker='o', color='r')
+plt.plot('x_adjust', 'y_adjust', data= test4, marker='o', color='r')
+sns.despine(left=True)
+plt.xlabel('Distance [x]', size=12, fontweight='bold')
+plt.ylabel('Distance [y]', size=12, fontweight='bold')
+
+
+
+#olika markers för de olika lederna, grupperna med färg
+#raw data in också (i bakgrunde)
+#biological replicates in i bakgrunden (separat version från raw data + average)
