@@ -158,3 +158,15 @@ def coordinates_overtime_plot_extended(joint_comb, study_group, plot_day):
 
 list(map(lambda group: list(map(lambda joint_comb: coordinates_overtime_plot_extended(joint_comb, group, 3), joint_combinations)), study_groups))
 
+#Bootstrapping data for calculation of biological replicates
+data_frame_boostrap = instance_position.data_frame
+data_frame_boostrap.drop(['side', 'force', 'displacement'], axis=1, inplace=True)
+
+test = data_frame_boostrap.melt(id_vars = ['RH.index', 'day', 'group'])
+test_dict = dict(list(test.groupby(['variable', 'RH.index', 'day'])))
+
+pd.concat([test_dict[key].sample(n=20, replace=True) for key in test_dict.keys()], axis=0, ignore_index=True)
+
+#clean up bootdata & double check
+#separate x & y -> then cast
+#make sure to calculate mean & st.dev in cast
