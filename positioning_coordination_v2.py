@@ -3,89 +3,105 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-#0. Defining color palette
-palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
-palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
-palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
+class Position:
+
+    def __init__(self, data_frame):
+        self.data_frame = data_frame
+
+    def column_adjuster(self, keep_cols, new_column_names):
+        '''Selects relevant columns and renames them'''
+        self.data_frame = self.data_frame[keep_cols]
+        self.data_frame = self.data_frame.rename(columns = new_column_names)
+
+    @staticmethod
+    def key_data_adder(key_data, data_set):
+        '''Merges dataset with additional info about the replicates'''
+        if(data_set['RH.index'].dtypes != 'int64'):
+            data_set['RH.index'] = data_set['RH.index'].map(lambda rh_index: rh_index[:3])
+            data_set['RH.index'] = data_set['RH.index'].astype('int64')
+
+        data_set = data_set.merge(key_data, on='RH.index')
+        return data_set
+
+    def coordinate_normalizer(self, coord_type):
+        '''Normalizes x-and y coordinates to zero-base'''
+        adjust_cols = [col_name for col_name in self.data_frame.columns if col_name[0] == coord_type]
+        unadjusted_dict = dict(list(self.data_frame.groupby('side')))
+        unadjusted_dict['left'] = unadjusted_dict['left'][adjust_cols].sub(
+            unadjusted_dict['left'][coord_type + '_origo'], axis=0)
+        unadjusted_dict['right'] = unadjusted_dict['right'][adjust_cols].sub(
+            unadjusted_dict['right'][coord_type + '_origo'], axis=0) * (-1)
+
+        self.data_frame[adjust_cols] = pd.concat(unadjusted_dict, ignore_index=True)
+
+    def melting_updating_casting(self):
+        data_to_melt = self.data_frame.drop(['side', 'force', 'displacement'], axis=1)
+        data_melt = data_to_melt.melt(id_vars=['RH.index', 'day', 'group'])
+
+        data_melt['coord_type'] = data_melt['variable'].apply(lambda joint: joint[0])
+        data_melt['joint_name'] = data_melt['variable'].apply(lambda joint: joint[2:])
+        del data_melt['variable']
+
+        self.data_frame_melt = data_melt.pivot_table(index=['RH.index', 'day', 'group', 'joint_name'],
+                                         values='value', columns='coord_type').reset_index()
+
+    def adjustor(self, adjust_var):
+        self.data_frame_melt[adjust_var + '_adjust'] = self.data_frame_melt[adjust_var] * \
+                                                                    self.data_frame_melt['displacement']
 
 #1. Importing data
-data_side_coordinates_raw = pd.read_csv('merge_side_view.csv')
+data_set_position = pd.read_csv('merge_side_view.csv')
 animal_key = pd.read_csv('animal_key_kinematics.csv')
 
-#2. Selecting relevant columns
-keep_columns = [': x [cm]', 'y [cm]', 'Joint 2: x [cm]', 'y [cm].1',
+#2. Data adjustments
+#A. Importing data, creating variables
+keep_columns_position = [': x [cm]', 'y [cm]', 'Joint 2: x [cm]', 'y [cm].1',
                 'Joint 3: x [cm]', 'y [cm].2', 'Joint 4: x [cm]', 'y [cm].3', 'Joint 5: x [cm]', 'y [cm].4',
                 'Joint 6: x [cm]', 'y [cm].5', 'RH.index', 'day', 'side']
-data_side_coordinates = data_side_coordinates_raw[keep_columns]
 
-#3. Renaming columns
-new_column_names = {': x [cm]':'x_origo', 'y [cm]':'y_origo', 'Joint 2: x [cm]':'x_iliac', 'y [cm].1':'y_iliac',
+new_column_names_position = {': x [cm]':'x_origo', 'y [cm]':'y_origo', 'Joint 2: x [cm]':'x_iliac', 'y [cm].1':'y_iliac',
                     'Joint 3: x [cm]':'x_trochanter', 'y [cm].2':'y_trochanter', 'Joint 4: x [cm]':'x_knee',
                     'y [cm].3':'y_knee', 'Joint 5: x [cm]':'x_ankle', 'y [cm].4':'y_ankle',
                     'Joint 6: x [cm]':'x_toe', 'y [cm].5':'y_toe'}
 
-data_side_coordinates = data_side_coordinates.rename(columns = new_column_names)
+#B. Creating instance, calling methods
+instance_position = Position(data_set_position)
+instance_position.column_adjuster(keep_columns_position, new_column_names_position)
+instance_position.data_frame = instance_position.key_data_adder(animal_key, instance_position.data_frame)
 
-#4. Adjusting RH.index
-data_side_coordinates['RH.index'] = data_side_coordinates['RH.index'].apply(lambda index: index[:3])
-data_side_coordinates['RH.index'] = data_side_coordinates['RH.index'].astype('int32')
+instance_position.coordinate_normalizer('x')
+instance_position.coordinate_normalizer('y')
 
-#5. Merging with animal key
-data_side_coordinates = data_side_coordinates.merge(animal_key[['RH.index', 'group']], on='RH.index')
+#C. Adjusting negative y-values in sci-group
+y_columns = [col_name for col_name in instance_position.data_frame.columns if col_name[0]=='y']
+instance_position.data_frame[y_columns] = instance_position.data_frame[y_columns].applymap(lambda value: value*(-1) if value<0 else value)
 
-#6. Normalizing x & y
-def coordinate_normalizer(coord_type, data_frame):
-    adjust_cols = [col_name for col_name in data_side_coordinates.columns if col_name[0] == coord_type]
-    unadjusted_dict = dict(list(data_frame.groupby('side')))
-    unadjusted_dict['left'] = unadjusted_dict['left'][adjust_cols].sub(unadjusted_dict['left'][coord_type+'_origo'], axis=0)
-    unadjusted_dict['right'] = unadjusted_dict['right'][adjust_cols].sub(unadjusted_dict['right'][coord_type + '_origo'], axis=0)*(-1)
+#D. Melting data
+instance_position.melting_updating_casting()
 
-    adjusted_dict = pd.concat(unadjusted_dict, ignore_index=True)
+#E. Adding force and displacement to aggregated dataset
+instance_position.data_frame_melt = instance_position.key_data_adder(animal_key.drop(['group'], axis=1), instance_position.data_frame_melt)
 
-    return adjusted_dict
+#F. Normalizing displacement and removing force
+del instance_position.data_frame_melt['force']
+instance_position.data_frame_melt['displacement'] = instance_position.data_frame_melt['displacement'].map(lambda value:
+                                                      value / min(instance_position.data_frame_melt['displacement']))
 
-data_side_coordinates_adjusted = pd.concat([coordinate_normalizer('x', data_side_coordinates).reset_index(drop=True),
-           coordinate_normalizer('y', data_side_coordinates), data_side_coordinates[['RH.index', 'day', 'group']]], axis=1)
+instance_position.data_frame_melt.loc[instance_position.data_frame_melt['day']==3, ['displacement']] = 1
 
-#7. Adjusting negative y-values in sci-group
-y_columns = [col_name for col_name in data_side_coordinates_adjusted.columns if col_name[0]=='y']
-data_side_coordinates_adjusted[y_columns] = data_side_coordinates_adjusted[y_columns].applymap(lambda value: value*(-1) if value<0 else value)
+#G. Adjusting x -and y coordinates using displacement
+[instance_position.adjustor(element) for element in ['x', 'y']]
 
-def melting_updating_casting(data_frame):
-    out_data = data_frame.melt(id_vars=['RH.index', 'day', 'group'])
 
-    out_data['coord_type'] = out_data['variable'].apply(lambda joint: joint[0])
-    out_data['joint_name'] = out_data['variable'].apply(lambda joint: joint[2:])
-    out_data = out_data.drop(['variable'], axis=1)
 
-    out_data = out_data.pivot_table(index=['RH.index', 'day', 'group', 'joint_name'], values='value', columns='coord_type').reset_index()
 
-    return out_data
 
-data_side_coordinates_melt = melting_updating_casting(data_side_coordinates_adjusted)
 
-#8. Adding force and displacement to dataset
-data_side_coordinates_melt = data_side_coordinates_melt.merge(animal_key[['RH.index','force', 'displacement']], on='RH.index')
 
-#9. Calculating force and displacement index and adding back to original dataframe
-def indexator(adjust_var):
-    out_series = data_side_coordinates_melt[adjust_var].map(lambda value: value/min(data_side_coordinates_melt[adjust_var]))
-    out_series.name = adjust_var+'_index'
-    return out_series
-
-index_columns = pd.concat([indexator(variable) for variable in ['displacement', 'force']], axis=1)
-data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, index_columns], axis=1)
-#Adjusting day 3 to be not adjusted
-data_side_coordinates_melt.loc[data_side_coordinates_melt['day']==3, ['displacement_index', 'force_index']] = 1
-
-#10. Calculating adjusted x and y coordinates using force or displacement index
-def coord_adjuster(coord_type):
-    multiply_variables = ['displacement_index', 'force_index']
-    multiplied_coord = pd.concat([data_side_coordinates_melt[coord_type]*data_side_coordinates_melt[element] for element in multiply_variables], axis=1)
-    multiplied_coord.columns = [multiply_variables[0]+'_'+coord_type, multiply_variables[1]+'_'+coord_type]
-    return multiplied_coord
-
-data_side_coordinates_melt = pd.concat([data_side_coordinates_melt, coord_adjuster('x'), coord_adjuster('y')], axis=1)
+#0. Defining color palette
+palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
+palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
+palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
 
 #10. Plotting - biological replicates
 side_overview_plot = sns.lmplot(data = data_side_coordinates_melt, x='displacement_index_x', y='displacement_index_y', hue='group',
