@@ -133,4 +133,28 @@ def coordinates_overtime_plot(joint_comb, study_group, plot_day):
     plt.yticks(list(np.arange(0, 3, 0.25)))
     plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
 
-list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 3), joint_combinations)), study_groups))
+list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 35), joint_combinations)), study_groups))
+#plt.savefig('position_d35.jpg', dpi=1000)
+
+def coordinates_overtime_plot_extended(joint_comb, study_group, plot_day):
+    #Creating datasets
+    plot_data_replicates = instance_position.data_frame_melt[
+        (instance_position.data_frame_melt['day']==plot_day) & (instance_position.data_frame_melt['group']==study_group) &
+        instance_position.data_frame_melt['joint_name'].isin(joint_comb)]
+
+    plot_data_group_mean = average_data[
+        (average_data['day'] == plot_day) & (average_data['group'] == study_group) & average_data['joint_name'].isin(
+            joint_comb)]
+    #Creating plots
+    plt.scatter('x_adjust', 'y_adjust', data = plot_data_replicates, color=group_2_color(study_group), alpha=0.3)
+    plt.plot('x_adjust', 'y_adjust', data=plot_data_group_mean, marker='p', ms=15, color=group_2_color(study_group), alpha=0.7, linewidth=4)
+    #Adjusting plots
+    sns.despine(left=True)
+    plt.xlabel('Distance (x)', size=15, fontweight='bold')
+    plt.ylabel('Distance (y)', size=15, fontweight='bold')
+    plt.xticks(list(np.arange(0, 3, 0.5)))
+    plt.yticks(list(np.arange(0, 3, 0.5)))
+    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
+
+list(map(lambda group: list(map(lambda joint_comb: coordinates_overtime_plot_extended(joint_comb, group, 3), joint_combinations)), study_groups))
+
