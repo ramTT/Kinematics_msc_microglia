@@ -108,21 +108,29 @@ average_data = instance_position.data_frame_melt.groupby(['day', 'group', 'joint
 average_data['RH.index'] = average_data['RH.index'].astype('object')
 average_data = average_data[average_data['joint_name']!='origo']
 
-test = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['iliac', 'trochanter'])]
-test2 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['trochanter', 'knee'])]
-test3 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['knee', 'ankle'])]
-test4 = average_data[(average_data['day']==3)&(average_data['group']=='sci')&average_data['joint_name'].isin(['ankle', 'toe'])]
+def group_2_color(argument):
+    '''Dictionary mapping (replacing switch/case statement)'''
+    switcher = {
+        'sci': palette_custom_1[0],
+        'sci_medium': palette_custom_1[1],
+        'sci_msc': palette_custom_1[2]
+    }
+    return switcher.get(argument)
 
-plt.plot('x_adjust', 'y_adjust', data= test, marker='o', color='r', linewidth=5, alpha=0.6, ms=20)
-plt.plot('x_adjust', 'y_adjust', data= test2, marker='o', color='r')
-plt.plot('x_adjust', 'y_adjust', data= test3, marker='o', color='r')
-plt.plot('x_adjust', 'y_adjust', data= test4, marker='o', color='r')
-sns.despine(left=True)
-plt.xlabel('Distance [x]', size=12, fontweight='bold')
-plt.ylabel('Distance [y]', size=12, fontweight='bold')
+joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle'], ['ankle', 'toe']]
+study_groups = ['sci', 'sci_medium', 'sci_msc']
 
+def coordinates_overtime_plot(joint_comb, study_group, plot_day):
+    group_color = group_2_color(study_group)
 
+    plot_data = average_data[(average_data['day']==plot_day) & (average_data['group']==study_group) & average_data['joint_name'].isin(joint_comb)]
 
-#olika markers för de olika lederna, grupperna med färg
-#raw data in också (i bakgrunde)
-#biological replicates in i bakgrunden (separat version från raw data + average)
+    plt.plot('x_adjust', 'y_adjust', data= plot_data, linewidth=5, alpha=0.6, marker='p', ms=20, color=group_color)
+    sns.despine(left=True)
+    plt.xlabel('Distance (x)', size=15, fontweight='bold')
+    plt.ylabel('Distance (y)', size=15, fontweight='bold')
+    plt.xticks(list(np.arange(0, 3, 0.25)))
+    plt.yticks(list(np.arange(0, 3, 0.25)))
+    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
+
+list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 3), joint_combinations)), study_groups))
