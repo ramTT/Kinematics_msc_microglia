@@ -133,7 +133,7 @@ def coordinates_overtime_plot(joint_comb, study_group, plot_day):
     plt.yticks(list(np.arange(0, 3, 0.25)))
     plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
 
-list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 35), joint_combinations)), study_groups))
+#list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 35), joint_combinations)), study_groups))
 #plt.savefig('position_d35.jpg', dpi=1000)
 
 def coordinates_overtime_plot_extended(joint_comb, study_group, plot_day):
@@ -158,15 +158,79 @@ def coordinates_overtime_plot_extended(joint_comb, study_group, plot_day):
 
 list(map(lambda group: list(map(lambda joint_comb: coordinates_overtime_plot_extended(joint_comb, group, 3), joint_combinations)), study_groups))
 
-#Bootstrapping data for calculation of biological replicates
-data_frame_boostrap = instance_position.data_frame
-data_frame_boostrap.drop(['side', 'force', 'displacement'], axis=1, inplace=True)
+#12. Bootstrapping data for plotting
+#A. Bootstrapping data from each animal/day/variable
+data_frame_boostrap = instance_position.data_frame.drop(['side', 'force', 'displacement'], axis=1)
+data_frame_boostrap = data_frame_boostrap.melt(id_vars = ['RH.index', 'day', 'group'])
+data_frame_boostrap = dict(list(data_frame_boostrap.groupby(['variable', 'RH.index', 'day'])))
 
-test = data_frame_boostrap.melt(id_vars = ['RH.index', 'day', 'group'])
-test_dict = dict(list(test.groupby(['variable', 'RH.index', 'day'])))
+data_frame_boostrap = pd.concat([data_frame_boostrap[key].sample(n=20, replace=True) for key in data_frame_boostrap.keys()], axis=0, ignore_index=True)
+data_frame_boostrap['coord_type'] = data_frame_boostrap['variable'].map(lambda word: word[0])
+data_frame_boostrap['joint_type'] = data_frame_boostrap['variable'].map(lambda word: word[2:])
+del data_frame_boostrap['variable']
 
-pd.concat([test_dict[key].sample(n=20, replace=True) for key in test_dict.keys()], axis=0, ignore_index=True)
+#B. Creating dataset of bootstrapped technical replicates in long format
+data_frame_boostrap_raw = data_frame_boostrap[data_frame_boostrap['coord_type']=='x']
+data_frame_boostrap_raw = data_frame_boostrap_raw.rename(columns={'value':'x_value'})
+del data_frame_boostrap_raw['coord_type']
+data_frame_boostrap_raw = data_frame_boostrap_raw.assign(y_value=data_frame_boostrap[data_frame_boostrap['coord_type']=='y']['value'].values)
 
-#clean up bootdata & double check
-#separate x & y -> then cast
-#make sure to calculate mean & st.dev in cast
+#C. Agreggating bootstrap data for each animal/day/joint_type
+data_frame_boostrap_aggregate = data_frame_boostrap_raw.groupby(['RH.index', 'day', 'joint_type'], as_index=False).agg(['mean', 'std']).reset_index()
+data_frame_boostrap_aggregate.columns = ['RH.index', 'day', 'joint_name', 'mean_x', 'std_x', 'mean_y', 'std_y']
+
+#D. Summarizing boostrap data for each group/day/joint
+#Adding back group (from animal key dataset)
+data_frame_boostrap_aggregate = data_frame_boostrap_aggregate.merge(animal_key[['RH.index', 'group']], on ='RH.index')
+
+def mean_of_std(lambda_var):
+    return np.sqrt(np.divide(np.sum(lambda_var**2), lambda_var.nunique()))
+
+data_frame_boostrap_summary = data_frame_boostrap_aggregate.groupby(['day', 'group', 'joint_name'],
+    as_index=False).agg({'mean_x':'mean','mean_y':'mean','std_x':lambda std_dev: mean_of_std(std_dev),
+                         'std_y': lambda std_dev: mean_of_std(std_dev)})
+
+
+
+
+def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_summary, plot_day, study_group):
+    #Creating datasets
+    plot_data_technical = data_technical[(data_technical['day']==plot_day) & (data_technical['group']==study_group)]
+    plot_data_biological = data_biological[(data_biological['day']==plot_day)&(data_biological['group']==study_group)]
+    plot_data_summary = data_summary[(data_summary['day']==plot_day)&(data_summary['group']==study_group)]
+
+    #Creating plots
+    plt.scatter('x_value', 'y_value', data= plot_data_technical, color=group_2_color(study_group), alpha=0.1, s=10, edgecolors=None)
+    plt.scatter('mean_x', 'mean_y', data=plot_data_biological, color=group_2_color(study_group), alpha=0.4, s=50, marker='^', edgecolors=None)
+    plt.scatter('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.7, s=1000, marker='p')
+
+    #Plot adjust
+    sns.despine(left=True)
+    plt.xlabel('Distance (x)', size=15, fontweight='bold')
+    plt.ylabel('Distance (y)', size=15, fontweight='bold')
+    plt.xticks(list(np.arange(0, 4.5, 0.5)))
+    plt.yticks(list(np.arange(0, 3.5, 0.5)))
+    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
+
+def line_plotter(data_summary, plot_day, study_group, joint_comb):
+    plot_data_summary = data_summary[(data_summary['day'] == plot_day) & (data_summary['group'] == study_group)&data_summary['joint_name'].isin(joint_comb)]
+
+    plt.plot('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.7, linewidth=4)
+    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, loc='upper center', ncol=3)
+
+#Removing origo before plotting
+data_frame_boostrap_raw = data_frame_boostrap_raw[data_frame_boostrap_raw['joint_type']!='origo']
+data_frame_boostrap_aggregate = data_frame_boostrap_aggregate[data_frame_boostrap_aggregate['joint_name']!='origo']
+data_frame_boostrap_summary = data_frame_boostrap_summary[data_frame_boostrap_summary['joint_name']!='origo']
+
+#Calling both functions at the same time
+list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
+                                                             data_frame_boostrap_aggregate,
+                                                             data_frame_boostrap_summary,
+                                                             3, group), study_groups))
+
+list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, 3, group, joint_combo), joint_combinations)), study_groups))
+
+#1. Plotta in mean per group och joint -> storlek varierar med osäkerheten (mean of st.dev)
+        #normalisera std.dev och multiplicera ett fixt värde (eg s=1000)
+#2. Byt färg på legend
