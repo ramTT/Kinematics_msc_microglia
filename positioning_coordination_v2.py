@@ -50,7 +50,7 @@ class Position:
                                                                     self.data_frame_melt['displacement']
 
 #1. Importing data
-data_set_position = pd.read_csv('merge_side_view.csv')
+data_set_position = pd.read_csv('merge_side_view.csv', encoding='utf-16')
 animal_key = pd.read_csv('animal_key_kinematics.csv')
 
 #2. Data adjustments
@@ -191,8 +191,6 @@ data_frame_boostrap_summary = data_frame_boostrap_aggregate.groupby(['day', 'gro
                          'std_y': lambda std_dev: mean_of_std(std_dev)})
 
 
-
-
 def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_summary, plot_day, study_group):
     #Creating datasets
     plot_data_technical = data_technical[(data_technical['day']==plot_day) & (data_technical['group']==study_group)]
@@ -202,7 +200,15 @@ def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_
     #Creating plots
     plt.scatter('x_value', 'y_value', data= plot_data_technical, color=group_2_color(study_group), alpha=0.1, s=10, edgecolors=None)
     plt.scatter('mean_x', 'mean_y', data=plot_data_biological, color=group_2_color(study_group), alpha=0.4, s=50, marker='^', edgecolors=None)
-    plt.scatter('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.7, s=1000, marker='p')
+    for joint in plot_data_summary['joint_name']:
+        plt.scatter('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.1, s=1000*plot_data_summary['std_norm'], marker='p')
+
+    #Plot legend adjust
+    ax = plt.gca()
+    leg = ax.get_legend()
+    leg.legendHandles[0].set_color('red')
+    leg.legendHandles[1].set_color('yellow')
+    leg.legendHandles[2].set_color('blue')
 
     #Plot adjust
     sns.despine(left=True)
@@ -223,14 +229,37 @@ data_frame_boostrap_raw = data_frame_boostrap_raw[data_frame_boostrap_raw['joint
 data_frame_boostrap_aggregate = data_frame_boostrap_aggregate[data_frame_boostrap_aggregate['joint_name']!='origo']
 data_frame_boostrap_summary = data_frame_boostrap_summary[data_frame_boostrap_summary['joint_name']!='origo']
 
-#Calling both functions at the same time
-list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
-                                                             data_frame_boostrap_aggregate,
-                                                             data_frame_boostrap_summary,
-                                                             3, group), study_groups))
+#Normalizing st.dev in summary data before plotting (to be able to adjust size of markers)
+def std_normalizer(data_summary, plot_day):
+    data_out = data_summary[data_summary['day']==plot_day]
+    std_data = np.sqrt(data_out['std_x']**2+data_out['std_y']**2)
+    data_out = data_out.assign(std_norm=std_data/np.mean(std_data))
+    return data_out
 
-list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, 3, group, joint_combo), joint_combinations)), study_groups))
+data_frame_boostrap_summary = pd.concat(list(map(lambda day: std_normalizer(data_frame_boostrap_summary, day),
+                                                 list(data_frame_boostrap_summary['day'].unique()))), ignore_index=True)
 
-#1. Plotta in mean per group och joint -> storlek varierar med osäkerheten (mean of st.dev)
-        #normalisera std.dev och multiplicera ett fixt värde (eg s=1000)
+#Function calls both plot functions
+def plot_caller(plot_day):
+    list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
+                                                                 data_frame_boostrap_aggregate,
+                                                                 data_frame_boostrap_summary,
+                                                                 plot_day, group), study_groups))
+
+    list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, plot_day, group, joint_combo), joint_combinations)), study_groups))
+    plt.savefig('position_plot_'+'d'+str(plot_day)+'.jpg', dpi=1000)
+
+
+
+
+
+
+
+
+
+
+
 #2. Byt färg på legend
+#4. Rensa/remove tidigare plotfunktioner
+#5. bootstrap kod tillräcklig? behövs den initiala?
+#6. Rensa koden
