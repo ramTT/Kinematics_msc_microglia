@@ -40,10 +40,11 @@ class Position:
 
         data_melt['coord_type'] = data_melt['variable'].apply(lambda joint: joint[0])
         data_melt['joint_name'] = data_melt['variable'].apply(lambda joint: joint[2:])
-        del data_melt['variable']
+        self.data_frame_melt = data_melt
+        #del data_melt['variable']
 
-        self.data_frame_melt = data_melt.pivot_table(index=['RH.index', 'day', 'group', 'joint_name'],
-                                         values='value', columns='coord_type').reset_index()
+        #self.data_frame_melt = data_melt.pivot_table(index=['RH.index', 'day', 'group', 'joint_name'],
+        #                                 values='value', columns='coord_type').reset_index()
 
     def adjustor(self, adjust_var):
         self.data_frame_melt[adjust_var + '_adjust'] = self.data_frame_melt[adjust_var] * \
@@ -76,89 +77,7 @@ instance_position.coordinate_normalizer('y')
 y_columns = [col_name for col_name in instance_position.data_frame.columns if col_name[0]=='y']
 instance_position.data_frame[y_columns] = instance_position.data_frame[y_columns].applymap(lambda value: value*(-1) if value<0 else value)
 
-#D. Melting data
-instance_position.melting_updating_casting()
-
-#E. Adding force and displacement to aggregated dataset
-instance_position.data_frame_melt = instance_position.key_data_adder(animal_key.drop(['group'], axis=1), instance_position.data_frame_melt)
-
-#F. Normalizing displacement and removing force
-del instance_position.data_frame_melt['force']
-instance_position.data_frame_melt['displacement'] = instance_position.data_frame_melt['displacement'].map(lambda value:
-                                                      value / min(instance_position.data_frame_melt['displacement']))
-
-instance_position.data_frame_melt.loc[instance_position.data_frame_melt['day']==3, ['displacement']] = 1
-
-#G. Adjusting x -and y coordinates using displacement
-[instance_position.adjustor(element) for element in ['x', 'y']]
-
-#3. Defining color palette
-palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
-palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
-palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
-
-#4. Plotting - biological replicates
-side_overview_plot = sns.lmplot(data = instance_position.data_frame_melt, x='x_adjust', y='y_adjust', hue='group',
-                                   legend=False, col='day', fit_reg=False, palette=palette_custom_1)
-side_overview_plot.set_xlabels('Distance [x]', size=10, fontweight='bold')
-side_overview_plot.set_ylabels('Distance [y]', size=10, fontweight='bold')
-
-#11. Plotting - average per group
-average_data = instance_position.data_frame_melt.groupby(['day', 'group', 'joint_name'], as_index=False).mean()
-average_data['RH.index'] = average_data['RH.index'].astype('object')
-average_data = average_data[average_data['joint_name']!='origo']
-
-def group_2_color(argument):
-    '''Dictionary mapping (replacing switch/case statement)'''
-    switcher = {
-        'sci': palette_custom_1[0],
-        'sci_medium': palette_custom_1[1],
-        'sci_msc': palette_custom_1[2]
-    }
-    return switcher.get(argument)
-
-joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle'], ['ankle', 'toe']]
-study_groups = ['sci', 'sci_medium', 'sci_msc']
-
-def coordinates_overtime_plot(joint_comb, study_group, plot_day):
-    group_color = group_2_color(study_group)
-
-    plot_data = average_data[(average_data['day']==plot_day) & (average_data['group']==study_group) & average_data['joint_name'].isin(joint_comb)]
-
-    plt.plot('x_adjust', 'y_adjust', data= plot_data, linewidth=5, alpha=0.6, marker='p', ms=20, color=group_color)
-    sns.despine(left=True)
-    plt.xlabel('Distance (x)', size=15, fontweight='bold')
-    plt.ylabel('Distance (y)', size=15, fontweight='bold')
-    plt.xticks(list(np.arange(0, 3, 0.25)))
-    plt.yticks(list(np.arange(0, 3, 0.25)))
-    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
-
-#list(map(lambda group: list(map(lambda joint_combo: coordinates_overtime_plot(joint_combo, group, 35), joint_combinations)), study_groups))
-#plt.savefig('position_d35.jpg', dpi=1000)
-
-def coordinates_overtime_plot_extended(joint_comb, study_group, plot_day):
-    #Creating datasets
-    plot_data_replicates = instance_position.data_frame_melt[
-        (instance_position.data_frame_melt['day']==plot_day) & (instance_position.data_frame_melt['group']==study_group) &
-        instance_position.data_frame_melt['joint_name'].isin(joint_comb)]
-
-    plot_data_group_mean = average_data[
-        (average_data['day'] == plot_day) & (average_data['group'] == study_group) & average_data['joint_name'].isin(
-            joint_comb)]
-    #Creating plots
-    plt.scatter('x_adjust', 'y_adjust', data = plot_data_replicates, color=group_2_color(study_group), alpha=0.3)
-    plt.plot('x_adjust', 'y_adjust', data=plot_data_group_mean, marker='p', ms=15, color=group_2_color(study_group), alpha=0.7, linewidth=4)
-    #Adjusting plots
-    sns.despine(left=True)
-    plt.xlabel('Distance (x)', size=15, fontweight='bold')
-    plt.ylabel('Distance (y)', size=15, fontweight='bold')
-    plt.xticks(list(np.arange(0, 3, 0.5)))
-    plt.yticks(list(np.arange(0, 3, 0.5)))
-    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
-
-list(map(lambda group: list(map(lambda joint_comb: coordinates_overtime_plot_extended(joint_comb, group, 3), joint_combinations)), study_groups))
-
-#12. Bootstrapping data for plotting
+#################################################################### BOOTSTRAPPING DATA FOR PLOTTING ##############################################################
 #A. Bootstrapping data from each animal/day/variable
 data_frame_boostrap = instance_position.data_frame.drop(['side', 'force', 'displacement'], axis=1)
 data_frame_boostrap = data_frame_boostrap.melt(id_vars = ['RH.index', 'day', 'group'])
@@ -191,6 +110,25 @@ data_frame_boostrap_summary = data_frame_boostrap_aggregate.groupby(['day', 'gro
                          'std_y': lambda std_dev: mean_of_std(std_dev)})
 
 
+############################################################## DEFINING COLOR PALETTES ##########################################################################
+palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
+palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
+palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
+
+def group_2_color(argument):
+    '''Dictionary mapping (replacing switch/case statement)'''
+    switcher = {
+        'sci': palette_custom_1[0],
+        'sci_medium': palette_custom_1[1],
+        'sci_msc': palette_custom_1[2]
+    }
+    return switcher.get(argument)
+
+#Function calls both plot functions
+joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle'], ['ankle', 'toe']]
+study_groups = ['sci', 'sci_medium', 'sci_msc']
+
+######################################################### PLOTTING ALL JOINTS OVER TIME  ##########################################################
 def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_summary, plot_day, study_group):
     #Creating datasets
     plot_data_technical = data_technical[(data_technical['day']==plot_day) & (data_technical['group']==study_group)]
@@ -202,13 +140,6 @@ def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_
     plt.scatter('mean_x', 'mean_y', data=plot_data_biological, color=group_2_color(study_group), alpha=0.4, s=50, marker='^', edgecolors=None)
     for joint in plot_data_summary['joint_name']:
         plt.scatter('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.1, s=1000*plot_data_summary['std_norm'], marker='p')
-
-    #Plot legend adjust
-    ax = plt.gca()
-    leg = ax.get_legend()
-    leg.legendHandles[0].set_color('red')
-    leg.legendHandles[1].set_color('yellow')
-    leg.legendHandles[2].set_color('blue')
 
     #Plot adjust
     sns.despine(left=True)
@@ -232,14 +163,14 @@ data_frame_boostrap_summary = data_frame_boostrap_summary[data_frame_boostrap_su
 #Normalizing st.dev in summary data before plotting (to be able to adjust size of markers)
 def std_normalizer(data_summary, plot_day):
     data_out = data_summary[data_summary['day']==plot_day]
-    std_data = np.sqrt(data_out['std_x']**2+data_out['std_y']**2)
+    std_data = np.sqrt((data_out['std_x']**2+data_out['std_y']**2)/2)
     data_out = data_out.assign(std_norm=std_data/np.mean(std_data))
     return data_out
 
 data_frame_boostrap_summary = pd.concat(list(map(lambda day: std_normalizer(data_frame_boostrap_summary, day),
                                                  list(data_frame_boostrap_summary['day'].unique()))), ignore_index=True)
 
-#Function calls both plot functions
+
 def plot_caller(plot_day):
     list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
                                                                  data_frame_boostrap_aggregate,
@@ -248,18 +179,3 @@ def plot_caller(plot_day):
 
     list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, plot_day, group, joint_combo), joint_combinations)), study_groups))
     plt.savefig('position_plot_'+'d'+str(plot_day)+'.jpg', dpi=1000)
-
-
-
-
-
-
-
-
-
-
-
-#2. Byt färg på legend
-#4. Rensa/remove tidigare plotfunktioner
-#5. bootstrap kod tillräcklig? behövs den initiala?
-#6. Rensa koden
