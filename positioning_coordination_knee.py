@@ -36,12 +36,39 @@ data_knee_summary.columns = ['day', 'group', 'inter_knee_distance_adjust']
 palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
-
+#List of groups
 study_groups = ['sci', 'sci_medium', 'sci_msc']
+#Creating x-variable (for origo) and y-variable (for vertical separation)
+instance_knee.data_frame['x'], data_knee_aggregate['x'], data_knee_summary['x'] = [0, 0, 0]
+instance_knee.data_frame['y'], data_knee_aggregate['y'], data_knee_summary['y'] = [1, 1, 1]
+#Adjusting y-values
+def y_adjustor(dataset):
+    dataset.loc[dataset['group'] == 'sci', 'y'] = 1.25
+    dataset.loc[dataset['group'] == 'sci_medium', 'y'] = 0.75
 
-instance_knee.data_frame['y'] = 1
-data_knee_aggregate['y'] = 1
-data_knee_summary['y'] = 1
+list(map(lambda data_set: y_adjustor(data_set), [instance_knee.data_frame, data_knee_aggregate, data_knee_summary]))
+#Creating an artifical crotch point
+data_knee_summary['x_artificial'] = data_knee_summary['inter_knee_distance_adjust']/2
+data_knee_summary['y_artificial'] = data_knee_summary['y']+2
+
+#Optimize code!!!!
+temp = data_knee_summary.melt(id_vars=['day', 'group', 'inter_knee_distance_adjust'])
+temp['group'] = temp['group']+'_'+temp['variable'].map(lambda name: name[2:])
+temp['variable'] = temp['variable'].map(lambda name: name[0])
+temp = temp.pivot_table(values='value', columns='variable', index=['day', 'group', 'inter_knee_distance_adjust']).reset_index()
+
+temp.loc[temp['group']=='sci_artificial', 'group'] = 'sci_'
+temp.loc[temp['group']=='sci_medium_artificial', 'group'] = 'sci_medium_'
+temp.loc[temp['group']=='sci_msc_artificial', 'group'] = 'sci_msc_'
+
+temp.loc[temp['group']=='sci_', 'group'] = 'sci'
+temp.loc[temp['group']=='sci_medium_', 'group'] = 'sci_medium'
+temp.loc[temp['group']=='sci_msc_', 'group'] = 'sci_msc'
+
+temp2 = temp.copy()
+temp2.loc[temp2['x']==0, 'x'] = temp2.loc[temp2['x']==0, 'inter_knee_distance_adjust']
+#!!!!
+
 
 #Plotting
 def inter_knee_distance_plot(data_technical, data_biological, data_summary, study_group, plot_day):
@@ -51,11 +78,16 @@ def inter_knee_distance_plot(data_technical, data_biological, data_summary, stud
     plot_data_summary = data_summary[(data_summary['group']==study_group)&(data_summary['day']==plot_day)]
 
     #Creating plots
+    #A. Points
     plt.scatter('inter_knee_distance_adjust', 'y', data = plot_data_technical, color=group_2_color(study_group), alpha=0.2, s=50)
     plt.scatter('inter_knee_distance_adjust', 'y', data=plot_data_biological, color=group_2_color(study_group), alpha=0.5,
                 marker="^", s=200)
     plt.scatter('inter_knee_distance_adjust', 'y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.5, s=1000,
                 marker="p")
+
+    plt.scatter('x', 'y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.5, s=1000, marker="p")
+    #B. Crotch point
+    plt.scatter('x_artificial', 'y_artificial', data=plot_data_summary, color=group_2_color(study_group), alpha=0.5, s=1000, marker="p")
 
     #Plot adjust
     sns.despine(left=True)
@@ -63,8 +95,13 @@ def inter_knee_distance_plot(data_technical, data_biological, data_summary, stud
     plt.xticks(list(np.arange(0, 4.5, 0.5)))
     plt.yticks(list(np.arange(0, 3.5, 0.5)))
 
-list(map(lambda group: inter_knee_distance_plot(instance_knee.data_frame, data_knee_aggregate, data_knee_summary, group, 3), study_groups))
+def line_plotter(data_set, study_group, plot_day):
+    plot_data_set = data_set[(data_set['group']==study_group)&(data_set['day']==plot_day)]
+    plt.plot('x', 'y', data = plot_data_set, lw=5, alpha=0.7, color=group_2_color(study_group))
 
-#Skapa en distans av bredden -> dvs plotta två punkter per punkt
-#Gör funktion som plottar tredje punkt ovan mittpunkten på fixed höjd.
-#Justera storlek med avseende på osäkerhet (hämta in std funktion från tidigare skript?)
+def plot_caller(plotDay):
+    list(map(lambda group: inter_knee_distance_plot(instance_knee.data_frame, data_knee_aggregate, data_knee_summary, group, plotDay), study_groups))
+    list(map(lambda group: line_plotter(temp, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
+    list(map(lambda group: line_plotter(temp2, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
+
+plot_caller(42)
