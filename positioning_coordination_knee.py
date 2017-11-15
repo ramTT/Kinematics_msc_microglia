@@ -104,4 +104,4 @@ def plot_caller(plotDay):
     list(map(lambda group: line_plotter(temp, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
     list(map(lambda group: line_plotter(temp2, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
 
-plot_caller(42)
+plot_caller(3)
