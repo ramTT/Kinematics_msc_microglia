@@ -179,3 +179,5 @@ def plot_caller(plot_day):
 
     list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, plot_day, group, joint_combo), joint_combinations)), study_groups))
     plt.savefig('position_plot_'+'d'+str(plot_day)+'.jpg', dpi=1000)
+
+plot_caller(3)
