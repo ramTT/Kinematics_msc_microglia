@@ -145,15 +145,21 @@ def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_
     sns.despine(left=True)
     plt.xlabel('Distance (x)', size=15, fontweight='bold')
     plt.ylabel('Distance (y)', size=15, fontweight='bold')
-    plt.xticks(list(np.arange(0, 4.5, 0.5)))
+    plt.xticks(list(np.arange(-2, 4.5, 0.5)))
     plt.yticks(list(np.arange(0, 3.5, 0.5)))
-    plt.title('Day post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
+    plt.title('Day Post SCI:'+' '+str(plot_day), size=15, fontweight='bold')
+    plt.scatter(0.5, 3.1, s=100, color=group_2_color('sci'))
+    plt.scatter(1, 3.1, s=100, color=group_2_color('sci_medium'))
+    plt.scatter(1.8, 3.1, s=100, color=group_2_color('sci_msc'))
+    plt.annotate('SCI', fontweight='bold', size=12, xy=(1, 1), xytext=(0.55, 3.075))
+    plt.annotate('SCI+Medium', fontweight='bold', size=12, xy=(1, 1), xytext=(1.05, 3.075))
+    plt.annotate('SCI+Medium+MSCs', fontweight='bold', size=12, xy=(1, 1), xytext=(1.85, 3.075))
+
 
 def line_plotter(data_summary, plot_day, study_group, joint_comb):
     plot_data_summary = data_summary[(data_summary['day'] == plot_day) & (data_summary['group'] == study_group)&data_summary['joint_name'].isin(joint_comb)]
 
     plt.plot('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.7, linewidth=4)
-    plt.legend(['SCI', 'SCI+Medium', 'SCI+Medium+IDmBMSCs'], frameon=False, loc='upper center', ncol=3)
 
 #Removing origo before plotting
 data_frame_boostrap_raw = data_frame_boostrap_raw[data_frame_boostrap_raw['joint_type']!='origo']
@@ -169,7 +175,6 @@ def std_normalizer(data_summary, plot_day):
 
 data_frame_boostrap_summary = pd.concat(list(map(lambda day: std_normalizer(data_frame_boostrap_summary, day),
                                                  list(data_frame_boostrap_summary['day'].unique()))), ignore_index=True)
-
 
 def plot_caller(plot_day):
     list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
