@@ -22,7 +22,7 @@ instance_angles.column_adjuster(keep_columns_angle, new_column_names_angle)
 instance_angles.data_frame = instance_angles.key_data_adder(animal_key, instance_angles.data_frame)
 
 #Importing summary data for discrete joint plotting and plotting functions
-from positioning_coordination_v2 import data_frame_boostrap_summary
+from positioning_coordination_v2 import data_frame_boostrap_summary, data_frame_boostrap_raw, data_frame_boostrap_aggregate
 
 #Summarizing angles for plotting
 instance_angles.data_frame.groupby(['day', 'group'], as_index=False).mean()
@@ -50,9 +50,10 @@ angle_data = angle_data.groupby(['day', 'group', 'joint'], as_index=False).mean(
 joint_angle_data = joint_data.set_index(['day', 'group', 'joint']).join(angle_data.set_index(['day', 'group', 'joint']))
 joint_angle_data = joint_angle_data.reset_index()
 
+joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle'], ['ankle', 'toe']]
 #F. Calculating complementary angles (for start angle definition)
 def comp_angle_calculator(df):
-    joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle']]
+    joint_combinations_function = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle']]
 
     def comp_angle_per_joint(joint_comb):
         horisontal_distance = df.loc[df['joint']==joint_comb[0], 'x'].reset_index()-df.loc[df['joint']==joint_comb[1], 'x'].reset_index()
@@ -66,7 +67,7 @@ def comp_angle_calculator(df):
 
         return complementary_angle
 
-    for comb in joint_combinations:
+    for comb in joint_combinations_function:
         df.loc[df['joint']==comb[1], 'comp_angle'] = comp_angle_per_joint(comb)
 
     return df
@@ -122,44 +123,50 @@ def wedge_plot(data_set, plot_day, study_group, joint):
     angle_end = np.float64(wedge_plot_data['stop_angle'])
     wedge_plot_function(ax1, (center_x, center_y), 0.5, angle_start, angle_end, study_group)
     plt.xlim([-0.25,3.5])
-    plt.ylim([-0.25,4])
+    plt.ylim([-0.25,4.5])
     plt.xlabel('Distance [x]', size=16, fontweight='bold')
     plt.ylabel('Distance [y]', size=16, fontweight='bold')
     plt.title('Day Post SCI'+':'+' '+str(plot_day), size=20, fontweight='bold')
     sns.despine(left=True)
 
 #B. Joint locations & inter-joint distances
-def coordinates_overtime_plot_extended_v2(data_summary, plot_day, study_group):
+def coordinates_overtime_plot_extended_v2(data_technical, data_biological, data_summary, plot_day, study_group):
     #Creating datasets
     plot_data_summary = data_summary[(data_summary['day']==plot_day)&(data_summary['group']==study_group)]
+    plot_data_technical = data_technical[(data_technical['day']==plot_day) & (data_technical['group']==study_group)]
+    plot_data_biological = data_biological[(data_biological['day']==plot_day)&(data_biological['group']==study_group)]
 
     #Creating plots
+    plt.scatter('x_value', 'y_value', data= plot_data_technical, color=group_2_color(study_group), alpha=0.1, s=10, edgecolors=None)
+    plt.scatter('mean_x', 'mean_y', data=plot_data_biological, color=group_2_color(study_group), alpha=0.4, s=50, marker='^', edgecolors=None)
     for joint in plot_data_summary['joint_name']:
         plt.scatter('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.8, s=500, marker='p')
 
 def line_plotter(data_summary, plot_day, study_group, joint_comb):
-    plot_data_summary = data_summary[(data_summary['day'] == plot_day) & (data_summary['group'] == study_group)&data_summary['joint_name'].isin(joint_comb)]
+    plot_data_summary = data_summary[(data_summary['day'] == plot_day) & (data_summary['group'] == study_group) & data_summary['joint_name'].isin(joint_comb)]
 
-    plt.plot('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.2, linewidth=4, linestyle='--')
+    plt.plot('mean_x', 'mean_y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.4, linewidth=4, linestyle='--')
 
 def plot_caller(plot_day):
-    list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_summary,
+    list(map(lambda group: coordinates_overtime_plot_extended_v2(data_frame_boostrap_raw,
+                                                                 data_frame_boostrap_aggregate,
+                                                                 data_frame_boostrap_summary,
                                                                  plot_day, group), study_groups))
 
     list(map(lambda group: list(map(lambda joint_combo: line_plotter(data_frame_boostrap_summary, plot_day, group, joint_combo), joint_combinations)), study_groups))
-    plt.savefig('position_plot_'+'d'+str(plot_day)+'.jpg', dpi=1000)
 
 #Calling all plot functions
-fig1 = plt.figure()
+fig1 = plt.figure(figsize=(13, 8))
 ax1 = fig1.add_subplot(111, aspect='equal')
-list(map(lambda joint: list(map(lambda group: wedge_plot(joint_angle_data, 7, group, joint), study_groups)), joint_list))
-plot_caller(7)
-ax1.annotate('Trochanter\n    major', xy=(1, 1), xytext=(2, 2.8), fontweight='bold', size=12)
-ax1.annotate('Knee', xy=(1, 1), xytext=(0.15, 0.7), fontweight='bold', size=12)
-ax1.annotate('Ankle', xy=(1, 1), xytext=(2.4, 1.2), fontweight='bold', size=12)
-plt.scatter(0.5, 3.9, s=100, color=group_2_color('sci'))
-plt.scatter(1, 3.9, s=100, color=group_2_color('sci_medium'))
-plt.scatter(1.8, 3.9, s=100, color=group_2_color('sci_msc'))
-ax1.annotate('SCI', fontweight='bold', size=12, xy=(1,1), xytext=(0.55, 3.875))
-ax1.annotate('SCI+Medium', fontweight='bold', size=12, xy=(1,1), xytext=(1.05, 3.875))
-ax1.annotate('SCI+Medium+MSCs', fontweight='bold', size=12, xy=(1,1), xytext=(1.85, 3.875))
+list(map(lambda joint: list(map(lambda group: wedge_plot(joint_angle_data, 42, group, joint), study_groups)), joint_list))
+plot_caller(42)
+ax1.annotate('Trochanter\n    major', xy=(1, 1), xytext=(1.8, 2.8), fontweight='bold', size=12)
+ax1.annotate('Knee', xy=(1, 1), xytext=(0.15, 1.2), fontweight='bold', size=12)
+ax1.annotate('Ankle', xy=(1, 1), xytext=(2.2, 1.1), fontweight='bold', size=12)
+plt.scatter(0.5, 4.2, s=100, color=group_2_color('sci'))
+plt.scatter(1, 4.2, s=100, color=group_2_color('sci_medium'))
+plt.scatter(2, 4.2, s=100, color=group_2_color('sci_msc'))
+ax1.annotate('SCI', fontweight='bold', size=10, xy=(1,1), xytext=(0.6, 4.175))
+ax1.annotate('SCI+Medium', fontweight='bold', size=10, xy=(1,1), xytext=(1.1, 4.175))
+ax1.annotate('SCI+Medium+MSCs', fontweight='bold', size=10, xy=(1, 1), xytext=(2.1, 4.175))
+plt.savefig('plot_side_d42.svg', dpi=1000)

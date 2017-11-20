@@ -25,6 +25,7 @@ displacement_min = min(instance_knee.data_frame['displacement'])
 instance_knee.data_frame['displacement'] /=displacement_min
 instance_knee.data_frame.loc[instance_knee.data_frame['day']==3,['displacement']] = 1
 instance_knee.data_frame['inter_knee_distance_adjust'] = instance_knee.data_frame['inter_knee_distance']*instance_knee.data_frame['displacement']
+instance_knee.data_frame['inter_knee_distance_adjust'] = 1/instance_knee.data_frame['inter_knee_distance_adjust']
 
 #Aggregating data
 data_knee_aggregate = instance_knee.data_frame.groupby(['RH.index', 'day', 'group'], as_index=False).agg({'inter_knee_distance_adjust':['mean']})
@@ -91,9 +92,12 @@ def inter_knee_distance_plot(data_technical, data_biological, data_summary, stud
 
     #Plot adjust
     sns.despine(left=True)
-    plt.xlabel('Distance (x)', size=15, fontweight='bold')
-    plt.xticks(list(np.arange(0, 4.5, 0.5)))
-    plt.yticks(list(np.arange(0, 3.5, 0.5)))
+    plt.xlabel('Distance [x]', size=15, fontweight='bold')
+    plt.xticks(list(np.arange(0, 4.5, 0.25)))
+    plt.yticks(list(np.arange(0, 4.5, 0.5)))
+    plt.title('Day (Post SCI):'+' '+str(plot_day), fontweight='bold', size=20)
+    plt.ylim([0, 4])
+    plt.xlim([-0.1, 0.9])
 
 def line_plotter(data_set, study_group, plot_day):
     plot_data_set = data_set[(data_set['group']==study_group)&(data_set['day']==plot_day)]
@@ -103,5 +107,9 @@ def plot_caller(plotDay):
     list(map(lambda group: inter_knee_distance_plot(instance_knee.data_frame, data_knee_aggregate, data_knee_summary, group, plotDay), study_groups))
     list(map(lambda group: line_plotter(temp, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
     list(map(lambda group: line_plotter(temp2, group, plotDay), ['sci', 'sci_medium', 'sci_msc']))
+    plt.savefig('plot_bottom_d'+str(plotDay)+'.svg', dpi=1000)
+    #plt.clf()
 
-plot_caller(3)
+plot_caller(7)
+#Saving figs
+#[plot_caller(day) for day in list(instance_knee.data_frame['day'].unique())]

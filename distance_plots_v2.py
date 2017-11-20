@@ -79,7 +79,7 @@ instance_knee = KinematicsDataAdjuster(data_set_knee)
 instance_knee.column_adjuster(keep_columns_knee, new_column_names_knee)
 instance_knee.key_data_adder(animal_key)
 instance_knee.measure_adjuster('inter_knee_distance')
-instance_knee.data_frame['inter_knee_distance_adjust'] = instance_knee.data_frame['inter_knee_distance']/instance_knee.data_frame['adjustor_column']
+instance_knee.data_frame['inter_knee_distance_adjust'] = 1/instance_knee.data_frame['inter_knee_distance_adjust']
 instance_knee.indexator('inter_knee_distance_adjust', 'day3mean')
 instance_knee.column_cleanup(['RH.index', 'day', 'group', 'inter_knee_distance_adjust'])
 
@@ -90,6 +90,9 @@ data_summary_knee = instance_knee.summary()
 palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
 palette_RdBu_r = pd.DataFrame(list(sns.color_palette("RdBu_r", 7)))
 palette_custom_1 = [tuple(palette_BrBG.iloc[0,:]), tuple(palette_RdBu_r.iloc[0,:]), tuple(palette_RdBu_r.iloc[6,:])]
+
+palette_temporary = [palette_custom_1[1], palette_custom_1[2], palette_custom_1[0]]
+
 
 def group_2_color(argument):
     '''Dictionary mapping (replacing switch/case statement)'''
@@ -118,10 +121,11 @@ def distribution_plot(plot_data, x_var, x_label, color_palette, x_limits):
     plt.xticks(list(np.arange(0.5, 5, 0.25)))
     plt.xlim(x_limits)
 
-distribution_plot(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index', palette_custom_1, [0.7, 3.25])
-#plt.savefig('distribution_plot_iliac.jpg', dpi=1000)
-distribution_plot(data_aggregate_knee, 'inter_knee_distance_adjust', 'Inter knee distance index', palette_custom_1, [0.25,2.75])
-#plt.savefig('distribution_plot_knee.jpg', dpi=1000)
+distribution_plot(data_aggregate_iliac, 'iliac_crest_height_adjust', 'Iliac crest height index', palette_temporary, [0.7, 3.25])
+#plt.savefig('distribution_plot_iliac.svg', dpi=1000)
+
+distribution_plot(data_aggregate_knee, 'inter_knee_distance_adjust', 'Inter knee distance index', palette_temporary, [0.25, 2.75])
+#plt.savefig('distribution_plot_knee.svg', dpi=1000)
 
 #5. Plotting over time
 def day_adjuster(dataset):
@@ -163,7 +167,9 @@ def overtime_plot(data_technical, data_biological, data_summary, study_group, y_
     plt.annotate('SCI+Medium', xy=(1, 1), xytext=(19, 3.475), fontweight='bold', size=12)
     plt.annotate('SCI+Medium+MSCs', xy=(1, 1), xytext=(29, 3.475), fontweight='bold', size=12)
 
-list(map(lambda group: overtime_plot(instance_iliac.data_frame, data_aggregate_iliac,data_summary_iliac,group, 'iliac_crest_height_adjust', 'Iliac crest height index'), study_groups))
-#plt.savefig('iliac_crest_height_overtime.jpg', dpi=1000)
-list(map(lambda group: overtime_plot(instance_knee.data_frame, data_aggregate_knee,data_summary_knee, group, 'inter_knee_distance_adjust', 'Inter knee distance'), study_groups))
-#plt.savefig('inter_knee_distance_overtime.jpg', dpi=1000)
+plt.figure(figsize=(12,12))
+list(map(lambda group: overtime_plot(instance_iliac.data_frame, data_aggregate_iliac, data_summary_iliac,group, 'iliac_crest_height_adjust', 'Iliac crest height index'), study_groups))
+#plt.savefig('iliac_crest_height_overtime.svg', dpi=1000)
+plt.figure(figsize=(12,12))
+list(map(lambda group: overtime_plot(instance_knee.data_frame, data_aggregate_knee, data_summary_knee, group, 'inter_knee_distance_adjust', 'Inter knee distance'), study_groups))
+#plt.savefig('inter_knee_distance_overtime.svg', dpi=1000)
