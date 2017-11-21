@@ -19,12 +19,15 @@ df_stat_summary = data_frame_boostrap_summary.copy()
 df_stat_summary.drop(['std_x', 'std_y', 'std_norm'], axis=1, inplace=True)
 df_stat_summary = df_stat_summary.rename(columns={'mean_x':'x', 'mean_y':'y'})
 
-
-from positioning_coordination_knee import instance_knee, data_knee_aggregate, data_knee_summary
+from positioning_coordination_knee import instance_knee
 #Raw - knee
 df_stat_raw_knee = instance_knee.data_frame.copy()
-df_stat_raw_knee.head()
-
+df_stat_raw_knee.drop(['displacement', 'x', 'y', 'inter_knee_distance'], axis=1, inplace=True)
+#Aggregate - knee
+df_stat_aggregate_knee = df_stat_raw_knee.groupby(['RH.index', 'day', 'group'], as_index=False).mean()
+#Summary - knee
+df_stat_summary_knee = df_stat_aggregate_knee.groupby(['day', 'group'], as_index=False).mean()
+df_stat_summary_knee.drop(['RH.index'], axis=1, inplace=True)
 
 ############################################################## DEFINING COLOR PALETTES ##########################################################################
 palette_BrBG = pd.DataFrame(list(sns.color_palette("BrBG", 7)))
@@ -37,6 +40,17 @@ def group_2_color(argument):
         'sci': palette_custom_1[0],
         'sci_medium': palette_custom_1[1],
         'sci_msc': palette_custom_1[2]
+    }
+    return switcher.get(argument)
+
+def joint_2_shape(argument):
+    marker_list = ['+', 'o', '*', 'v', 'd']
+    switcher = {
+        'ankle': marker_list[0],
+        'iliac':marker_list[1],
+        'knee':marker_list[2],
+        'toe':marker_list[3],
+        'trochanter':marker_list[4]
     }
     return switcher.get(argument)
 
@@ -81,43 +95,105 @@ def steady_state_random_sampler_caller(data_set, n_runs, day_min):
 
 df_bootstrap = steady_state_random_sampler_caller(df_stat_aggregate, 1000, 28)
 
+def steady_state_random_sampler_knee(data_set, day_min):
+    data_set = data_set[data_set['day']>=day_min]
+    data_set_dict = dict(list(data_set.groupby('group')))
+    def boostrapper(key):
+        df = data_set_dict[key]
+        return df.sample(frac=1, replace=True).agg({'inter_knee_distance_adjust':['mean']})
 
-def histogram_plotter(data_set, study_group):
-    plt.hist(data_set.loc[(data_set['joint_name']=='iliac')&
-                              (data_set['group']==study_group), 'y'],
-             bins=45, color=group_2_color(study_group), alpha=0.5)
+    df_out = pd.concat([boostrapper(group) for group in list(data_set_dict.keys())], axis=0, ignore_index=True)
+    df_out['group'] = list(data_set_dict.keys())
+    return df_out
+
+df_bootstrap_knee = pd.concat([steady_state_random_sampler_knee(df_stat_aggregate_knee, 28) for _ in range(1000)], axis=0, ignore_index=True)
+
+def histogram_plotter(data_set, study_group, y_variable):
+    plt.hist(data_set.loc[data_set['group']==study_group, y_variable], bins=45, color=group_2_color(study_group), alpha=0.5)
     sns.despine(left=True)
 
-def group_mean(data_set, study_group):
-    calc_object = data_set.loc[(data_set['group']==study_group)&(data_set['joint_name']=='iliac'), 'y']
+def group_mean(data_set, study_group, y_variable):
+    calc_object = data_set.loc[data_set['group']==study_group, y_variable]
     return np.round(np.mean(calc_object), decimals=2)
 
 #Iliac crest height sensitivity at steady state
 fig1 = plt.figure()
 ax1 = fig1.add_subplot(111)
-[histogram_plotter(df_bootstrap, group) for group in ['sci', 'sci_medium', 'sci_msc']]
+[histogram_plotter(df_bootstrap[df_bootstrap['joint_name']=='iliac'], group, 'y') for group in ['sci', 'sci_medium', 'sci_msc']]
 plt.xlabel('Iliac crest height', size=20, fontweight='bold')
 plt.ylabel('Counts (n)', size=20, fontweight='bold')
-ax1.annotate('SCI', xy=(3, 1), xytext=(2.9, 10), fontweight='bold', size=10)
-ax1.annotate('     SCI+\nMedium', xy=(3, 1), xytext=(3.25, 10), fontweight='bold', size=10)
-ax1.annotate('   SCI+\nMedium+\n   MSCs', xy=(3, 1), xytext=(3.65, 10), fontweight='bold', size=10)
-ax1.annotate(group_mean(df_bootstrap, 'sci'), xy=(3, 1), xytext=(2.89, 5), fontweight='bold', size=10, color='w')
-ax1.annotate(group_mean(df_bootstrap, 'sci_medium'), xy=(3, 1), xytext=(3.28, 5), fontweight='bold', size=10, color='w')
-ax1.annotate(group_mean(df_bootstrap, 'sci_msc'), xy=(3, 1), xytext=(3.69, 5), fontweight='bold', size=10, color='w')
+ax1.annotate('SCI', xy=(3, 1), xytext=(2.92, 10), fontweight='bold', size=20)
+ax1.annotate('   SCI+\nMedium', xy=(3, 1), xytext=(3.25, 10), fontweight='bold', size=20)
+ax1.annotate('    SCI+\nMedium+\n   MSCs', xy=(3, 1), xytext=(3.67, 10), fontweight='bold', size=20)
+ax1.annotate(group_mean(df_bootstrap[df_bootstrap['joint_name']=='iliac'], 'sci', 'y'), xy=(3, 1), xytext=(2.91, 5), fontweight='bold', size=20, color='w')
+ax1.annotate(group_mean(df_bootstrap[df_bootstrap['joint_name']=='iliac'], 'sci_medium', 'y'), xy=(3, 1), xytext=(3.28, 5), fontweight='bold', size=20, color='w')
+ax1.annotate(group_mean(df_bootstrap[df_bootstrap['joint_name']=='iliac'], 'sci_msc', 'y'), xy=(3, 1), xytext=(3.7, 5), fontweight='bold', size=20, color='w')
+#plt.savefig('plot_iliac_crest_height_steady_state_boostrap.svg', dpi=1000)
 
 #Inter knee distance sensitivity at steady state
+fig2 = plt.figure()
+ax1 = fig2.add_subplot(111)
+[histogram_plotter(df_bootstrap_knee, group, 'inter_knee_distance_adjust') for group in ['sci', 'sci_medium', 'sci_msc']]
+plt.xlabel('Inter knee distance', size=20, fontweight='bold')
+plt.ylabel('Counts (n)', size=20, fontweight='bold')
+ax1.annotate('   SCI+\nMedium+\n   MSCs', xy=(0.3, 0.05), xytext=(0.25, 6), fontweight='bold', size=20)
+ax1.annotate('   SCI+\nMedium', xy=(0.3, 0.05), xytext=(0.32, 6), fontweight='bold', size=20)
+ax1.annotate('SCI', xy=(0.3, 0.05), xytext=(0.42, 6), fontweight='bold', size=20)
+ax1.annotate(group_mean(df_bootstrap_knee, 'sci_msc', 'inter_knee_distance_adjust'), xy=(0.3, 0.05), xytext=(0.26, 2.5), fontweight='bold', size=20, color='w')
+ax1.annotate(group_mean(df_bootstrap_knee, 'sci_medium', 'inter_knee_distance_adjust'), xy=(0.3, 0.05), xytext=(0.328, 2.5), fontweight='bold', size=20, color='w')
+ax1.annotate(group_mean(df_bootstrap_knee, 'sci', 'inter_knee_distance_adjust'), xy=(0.3, 0.05), xytext=(0.418, 2.5), fontweight='bold', size=20, color='w')
+#plt.savefig('plot_inter_knee_distance_adjust_steady_state_boostrap.svg', dpi=1000)
+
+#Scatterplot of bootstrapped x and y -values
+#A. Pre-requisities
+joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 'ankle'], ['ankle', 'toe']]
+joints = list(df_bootstrap['joint_name'].unique())
+study_groups = ['sci', 'sci_msc', 'sci_medium']
+df_bootstrap_summary = df_bootstrap.groupby(['joint_name', 'group'], as_index=False).mean()
+#B. Plot-functions
+def fancy_side_view_bootstrap_plotter(data_set, study_group):
+    plot_data = data_set[data_set['group']==study_group]
+
+    def joint_plotter(joint):
+        joint_data = plot_data[plot_data['joint_name']==joint]
+        plt.scatter('x', 'y', data = joint_data, color=group_2_color(study_group), alpha=0.1, marker=joint_2_shape(joint), s=10)
+
+    [joint_plotter(joint) for joint in list(data_set['joint_name'].unique())]
+
+    sns.despine(left=True)
+    plt.xlabel('Distance [x]', size=20, fontweight='bold')
+    plt.ylabel('Distance [y]', size=20, fontweight='bold')
+
+def line_plotter(data_summary, study_group, joint_comb):
+    plot_data_summary = data_summary[(data_summary['group'] == study_group) & data_summary['joint_name'].isin(joint_comb)]
+    plt.plot('x', 'y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.4, linewidth=4, linestyle='--')
+
+#C. Calling plot functions & saving
+[fancy_side_view_bootstrap_plotter(df_bootstrap, group) for group in study_groups]
+list(map(lambda group: list(map(lambda joint_combo: line_plotter(df_bootstrap_summary, group, joint_combo), joint_combinations)), study_groups))
+#plt.savefig('plot_fancy_side_view_bootstrap.svg', dpi=1000)
+
+def multiple_group_comparison_bootstrap(data_set, day_min, joint, variable):
+    data_set = data_set[(data_set['joint_name']==joint) & (data_set['day']>=day_min)]
+    data_set_dict = dict(list(data_set.groupby(['group'])))
+    kruskal_raw = stats.kruskal(data_set_dict['sci'][variable], data_set_dict['sci_medium'][variable], data_set_dict['sci_msc'][variable])
+    kruskal_out = np.round(kruskal_raw[1], decimals=3)
+    return kruskal_out
+
+def multiple_group_comparison_bootstrap_caller(variable):
+    out = [multiple_group_comparison_bootstrap(df_stat_aggregate, 28, joint, variable) for joint in joints]
+    return pd.DataFrame({'p_value' : out, 'joint_name':joints})
+
+pd.concat([multiple_group_comparison_bootstrap_caller('x') for _ in range(1000)], axis=0, ignore_index=True)
+
+#for Y också
+#summarize
+#add to plot in proper way
+#add joint names to plot
+#gör liknande lösning för inter knee distance
 
 
 
-
-#Add density lines (without fill) to plot
-#More ways to display boostrapped data? -> evaluate x value
-#Scatterplot of bootstrapped x and y -values -> how do they cluster?
-    #Blir mean för resp grupp men ok -> dra fler replikat om krävs
-    #Plotta 1 grupp och joint åt gången -> olika färg för grupp och olika mönster för joint
-    #Maxa denna plot
-    #= steady state mean fancy side view plot. Add lines to mean of mean values.
-    #samma för inter knee distance
 
 
 
@@ -128,8 +204,9 @@ ax1.annotate(group_mean(df_bootstrap, 'sci_msc'), xy=(3, 1), xytext=(3.69, 5), f
     #-> r2py
     #add to time overview plots
 #A2. Post hoc analysis of multiple group analysis of joint position (for each joint and day separately)
-    #-> python
+    #-> tabell only
 #B1. Comparing joint location over time within each group
     #add p-values for each joint at each time point
 #Correlation plot between iliac crest height and inter knee distance
+    #regression & causality
 #Exportera tabeller
