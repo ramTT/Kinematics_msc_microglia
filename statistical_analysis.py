@@ -43,6 +43,14 @@ def group_2_color(argument):
     }
     return switcher.get(argument)
 
+def group_2_marker(argument):
+    switcher = {
+        'sci':'*',
+        'sci_medium':'+',
+        'sci_msc':'o'
+    }
+    return switcher.get(argument)
+
 def joint_2_shape(argument):
     marker_list = ['+', 'o', '*', 'v', 'd']
     switcher = {
@@ -150,6 +158,30 @@ joint_combinations = [['iliac', 'trochanter'], ['trochanter', 'knee'], ['knee', 
 joints = list(df_bootstrap['joint_name'].unique())
 study_groups = ['sci', 'sci_msc', 'sci_medium']
 df_bootstrap_summary = df_bootstrap.groupby(['joint_name', 'group'], as_index=False).mean()
+
+def multiple_group_comparison_bootstrap(data_set, day_min, joint, variable):
+    data_set = data_set[(data_set['joint_name']==joint) & (data_set['day']>=day_min)]
+    data_set_dict = dict(list(data_set.groupby(['group'])))
+    kruskal_raw = stats.kruskal(data_set_dict['sci'][variable], data_set_dict['sci_medium'][variable], data_set_dict['sci_msc'][variable])
+    kruskal_out = np.round(kruskal_raw[1], decimals=3)
+    return kruskal_out
+
+def multiple_group_comparison_bootstrap_caller(variable):
+    out = [multiple_group_comparison_bootstrap(df_stat_aggregate, 28, joint, variable) for joint in joints]
+    return pd.DataFrame({'p_value' : out, 'joint_name':joints})
+
+#Bootstrapping p-values for multiple group comparison
+multiple_group_p_value_x = pd.concat([multiple_group_comparison_bootstrap_caller('x') for _ in range(1000)], axis=0, ignore_index=True)
+multiple_group_p_value_y = pd.concat([multiple_group_comparison_bootstrap_caller('y') for _ in range(1000)], axis=0, ignore_index=True)
+
+p_value_x = multiple_group_p_value_x.groupby(['joint_name']).mean()
+p_value_y = multiple_group_p_value_y.groupby(['joint_name']).mean()
+
+#Dictionaries for adding p-values and joint names to plot
+position_x_dictionary = {'Ankle':[2.7, 1.6], 'Iliac crest':[0.05, 4.1], 'Knee':[0.2, 1.1], 'Toe':[1.6, 0.45], 'Trochanter major':[2.2, 3.4]}
+position_y_dictionary = {'Ankle':[2.7, 1.5], 'Iliac crest':[0.05, 4], 'Knee':[0.2, 1.0], 'Toe':[1.6, 0.35], 'Trochanter major':[2.2, 3.3]}
+position_name_dictionary = {'Ankle':[2.7, 1.7], 'Iliac crest':[0.05, 4.2], 'Knee':[0.2, 1.2], 'Toe':[1.6, 0.55], 'Trochanter major':[2.2, 3.5]}
+
 #B. Plot-functions
 def fancy_side_view_bootstrap_plotter(data_set, study_group):
     plot_data = data_set[data_set['group']==study_group]
@@ -164,33 +196,120 @@ def fancy_side_view_bootstrap_plotter(data_set, study_group):
     plt.xlabel('Distance [x]', size=20, fontweight='bold')
     plt.ylabel('Distance [y]', size=20, fontweight='bold')
 
+    for joint, pos in enumerate(position_x_dictionary):
+        if(np.float(p_value_x.iloc[joint,:])< 0.05):
+            color_x = 'g'
+        else:
+            color_x='r'
+        if(np.float(p_value_y.iloc[joint,:])<0.05):
+            color_y = 'g'
+        else:
+            color_y = 'r'
+
+        plt.annotate('X: '+str('{:03.3f}'.format(np.round(np.float(p_value_x.iloc[joint,:]), 3))), xy=(1,1), xytext=(position_x_dictionary[pos][0], position_x_dictionary[pos][1]), fontweight='bold', size=10, color=color_x)
+        plt.annotate('Y: '+str('{:03.3f}'.format(np.round(np.float(p_value_y.iloc[joint,:]), 3))), xy=(1,1), xytext=(position_y_dictionary[pos][0], position_y_dictionary[pos][1]), fontweight='bold', size=10, color=color_y)
+        plt.annotate(str(pos), xy=(1,1), xytext=(position_name_dictionary[pos][0], position_name_dictionary[pos][1]), fontweight='bold', size=14)
+
 def line_plotter(data_summary, study_group, joint_comb):
     plot_data_summary = data_summary[(data_summary['group'] == study_group) & data_summary['joint_name'].isin(joint_comb)]
-    plt.plot('x', 'y', data=plot_data_summary, color=group_2_color(study_group), alpha=0.4, linewidth=4, linestyle='--')
+    plt.plot('x', 'y', data=plot_data_summary, color=group_2_color(study_group), linewidth=4, linestyle='--')
+
 
 #C. Calling plot functions & saving
 [fancy_side_view_bootstrap_plotter(df_bootstrap, group) for group in study_groups]
 list(map(lambda group: list(map(lambda joint_combo: line_plotter(df_bootstrap_summary, group, joint_combo), joint_combinations)), study_groups))
 #plt.savefig('plot_fancy_side_view_bootstrap.svg', dpi=1000)
 
-def multiple_group_comparison_bootstrap(data_set, day_min, joint, variable):
-    data_set = data_set[(data_set['joint_name']==joint) & (data_set['day']>=day_min)]
-    data_set_dict = dict(list(data_set.groupby(['group'])))
-    kruskal_raw = stats.kruskal(data_set_dict['sci'][variable], data_set_dict['sci_medium'][variable], data_set_dict['sci_msc'][variable])
-    kruskal_out = np.round(kruskal_raw[1], decimals=3)
-    return kruskal_out
+########################################################################### KNEE PLOT ###################################################################################
+#Fancy plot with bootstrap of inter knee distance
 
-def multiple_group_comparison_bootstrap_caller(variable):
-    out = [multiple_group_comparison_bootstrap(df_stat_aggregate, 28, joint, variable) for joint in joints]
-    return pd.DataFrame({'p_value' : out, 'joint_name':joints})
+#Adding a y-value with custom buit jitter for plotting purposes
+df_bootstrap_knee['y'] = df_bootstrap_knee['y'].map(lambda y_value: np.random.uniform(0.95, 1.05))
+#Creating a crotch point dataset for plotting
+df_line_data_knee = df_bootstrap_knee.iloc[:,~(df_bootstrap_knee.columns=='y')].groupby(['group']).mean()
+df_line_data_knee = df_line_data_knee.rename(columns={'inter_knee_distance_adjust':'x_mean'})
+df_line_data_knee['y_mean'] = 1
+df_line_data_knee['x_crotch'] = df_line_data_knee['x_mean'] / 2
+df_line_data_knee['y_crotch'] = 2.5
+df_line_data_knee['x_fix'] = 0
+df_line_data_knee['y_fix'] = 1
+df_line_data_knee = df_line_data_knee.reset_index()
+#From wide to long format for fixing
+df_line_data_knee = df_line_data_knee.melt(id_vars=['group'])
+df_line_data_knee['coord'] = df_line_data_knee['variable'].map(lambda var: var[0])
+df_line_data_knee['variable'] = df_line_data_knee['variable'].map(lambda var: var[2:])
+#Back to wide from long to fix coordinates
+df_line_data_knee = pd.pivot_table(df_line_data_knee, values='value', index=['group', 'variable'], columns ='coord').reset_index()
 
-pd.concat([multiple_group_comparison_bootstrap_caller('x') for _ in range(1000)], axis=0, ignore_index=True)
 
-#for Y också
-#summarize
-#add to plot in proper way
-#add joint names to plot
-#gör liknande lösning för inter knee distance
+#Knee - p-value for multiple group comparison
+def knee_multiple_group_comp(dataset, min_day):
+    calc_data = dataset[dataset['day']>=min_day]
+    calc_data_dict = dict(list(calc_data.groupby(['group'])))
+    calc_data_boot = pd.concat([calc_data_dict[group].sample(frac=1, replace=True) for group in calc_data_dict], axis=0, ignore_index=True)
+    kruskal_raw = stats.kruskal(calc_data_boot.loc[calc_data_boot['group']=='sci', 'inter_knee_distance_adjust'], calc_data_boot.loc[calc_data_boot['group']=='sci_medium', 'inter_knee_distance_adjust'], calc_data_boot.loc[calc_data_boot['group']=='sci_msc', 'inter_knee_distance_adjust'])
+    p_value = np.round(np.float(kruskal_raw[1]), 3)
+
+    return p_value
+
+knee_kruskal_p = pd.DataFrame({'p_value':[knee_multiple_group_comp(df_stat_aggregate_knee, 28) for _ in range(1000)]})
+
+
+def inter_knee_distance_plot(data_bootstrap, data_line, study_group):
+    plot_data_bootstrap = data_bootstrap[(data_bootstrap['group']==study_group)]
+    plot_data_line = data_line[data_line['group']==study_group]
+    #Dots
+    plt.scatter('inter_knee_distance_adjust', 'y', data=plot_data_bootstrap, color=group_2_color(study_group), alpha=0.05)
+    #Lines
+    plt.plot('x', 'y', data = plot_data_line[~(plot_data_line['variable'] == 'mean')], color = group_2_color(study_group), linewidth = 4, linestyle = '--')
+    plt.plot('x', 'y', data = plot_data_line[~(plot_data_line['variable'] == 'fix')], color = group_2_color(study_group), linewidth = 4, linestyle = '--')
+
+    #Plot adjust
+    sns.despine(left=True)
+    plt.xlabel('Distance [x]', size=15, fontweight='bold')
+    plt.xticks(list(np.arange(0, 4.5, 0.25)))
+    plt.yticks(list(np.arange(0, 4.5, 0.5)))
+    plt.ylim([0.9, 2.6])
+    plt.xlim([0, 0.55])
+
+[inter_knee_distance_plot(df_bootstrap_knee, df_line_data_knee, group) for group in study_groups]
+########################################################################### CORRELATION PLOT ##############################################################################
+#Correlation between inter knee distance, height (iliac crest & trochanter major)
+
+correlation_data = df_stat_aggregate_knee.merge(df_stat_aggregate[(df_stat_aggregate['joint_name'].isin(['iliac', 'trochanter']))].drop(['x'], axis=1), on=['RH.index', 'day', 'group'])
+
+def correlation_plotter(data_set, study_group, height_type, y_variable):
+    plot_data = data_set[(data_set['joint_name']==height_type)&(data_set['group']==study_group)]
+
+    plt.scatter('y','inter_knee_distance_adjust', data=plot_data, color=group_2_color(study_group), marker=group_2_marker(study_group), s=100)
+    sns.despine(left=True)
+    plt.ylabel('Inter knee distance', fontweight='bold', size=20)
+    plt.xlabel(y_variable, fontweight='bold', size=20)
+
+[correlation_plotter(correlation_data, group, 'iliac', 'Iliac crest height') for group in study_groups]
+#plt.savefig('correlation_plot.svg', dpi=1000)
+
+#Evaluating normal distribution within variable and group
+[stats.normaltest(correlation_data.loc[correlation_data['group']==group,'inter_knee_distance_adjust']) for group in study_groups]
+[stats.normaltest(correlation_data.loc[correlation_data['group']==group,'y']) for group in study_groups]
+# -> normality is not fulfilled, using non-parametric tests
+
+#Estimating correlations with spearman and kendall
+def correlation_builder(data_set):
+
+    def correlation_sub(joint_type):
+        calc_data = data_set.loc[(data_set['joint_name']==joint_type)]
+        p_value_spearman = [np.round(np.float64(stats.spearmanr(calc_data.loc[calc_data['group']==sub_group, ['inter_knee_distance_adjust', 'y']])[1]), 3) for sub_group in study_groups]
+        p_value_kendall = [np.round(np.float64(stats.kendalltau(calc_data.loc[calc_data['group']==sub_group, 'inter_knee_distance_adjust'], calc_data.loc[calc_data['group']==sub_group, 'y'])[1]),3) for sub_group in study_groups]
+        out_df = pd.DataFrame({'spearman_p':p_value_spearman, 'kendall_p':p_value_kendall, 'joint':joint_type, 'group':study_groups})
+        return out_df
+    return pd.concat([correlation_sub('iliac'), correlation_sub('trochanter')], axis=0)
+
+correlation_builder(correlation_data)
+
+
+
+
 
 
 
@@ -207,6 +326,4 @@ pd.concat([multiple_group_comparison_bootstrap_caller('x') for _ in range(1000)]
     #-> tabell only
 #B1. Comparing joint location over time within each group
     #add p-values for each joint at each time point
-#Correlation plot between iliac crest height and inter knee distance
-    #regression & causality
 #Exportera tabeller
