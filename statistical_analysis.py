@@ -79,6 +79,38 @@ def joint_comparison_between_group(data_set, plot_day, var_type):
 pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'x') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
 pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'y') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
 
+#A2. Comparing within group over time for each joint
+def joint_comparison_within_group(data_set, study_group, calc_variable):
+    calc_data = data_set[(data_set['group']==study_group)]
+    def kruskal_test(joint_name):
+        return calc_data.loc[calc_data['joint_name']==joint_name, calc_variable]
+
+    data_list = [kruskal_test(joint) for joint in joints]
+
+    return len(data_list)
+
+
+joint_comparison_within_group(df_stat_aggregate, 'sci', 'x')
+
+
+
+
+#För inter knee distance också (between groups and within group)
+
+
+
+
+#0. Mixed ANOVA of time and group (iliac crest height and inter knee distance over time)
+    #-> r2py
+    #add to time overview plots
+#A2. Post hoc analysis of multiple group analysis
+
+
+
+
+
+
+
 #Steady state analysis (iliac crest height and inter knee distance)
 def steady_state_random_sampler(data_set, study_group, day_start):
     data_set = data_set[(data_set['day']>=day_start) & (data_set['group']==study_group)]
@@ -306,24 +338,3 @@ def correlation_builder(data_set):
     return pd.concat([correlation_sub('iliac'), correlation_sub('trochanter')], axis=0)
 
 correlation_builder(correlation_data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-#0. Mixed ANOVA of time and group (iliac crest height and inter knee distance over time)
-    #-> r2py
-    #add to time overview plots
-#A2. Post hoc analysis of multiple group analysis of joint position (for each joint and day separately)
-    #-> tabell only
-#B1. Comparing joint location over time within each group
-    #add p-values for each joint at each time point
-#Exportera tabeller
