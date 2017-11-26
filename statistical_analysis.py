@@ -62,7 +62,7 @@ def joint_2_shape(argument):
     }
     return switcher.get(argument)
 
-############################################################### STATISTICAL ANALYSIS ###########################################################################
+############################################################### MULTIPLE GROUP COMPARISONS ###########################################################################
 
 #A1. Comparing joint positions between groups at each time point for each joint
 def joint_comparison_between_group(data_set, plot_day, var_type):
@@ -80,36 +80,84 @@ pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'x') for day i
 pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'y') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
 
 #A2. Comparing within group over time for each joint
-def joint_comparison_within_group(data_set, study_group, calc_variable):
+def joint_comparison_within_group(data_set, study_group, var):
     calc_data = data_set[(data_set['group']==study_group)]
     def kruskal_test(joint_name):
-        return calc_data.loc[calc_data['joint_name']==joint_name, calc_variable]
+        calc_data_sub = calc_data.loc[calc_data['joint_name']==joint_name]
+        cd = dict(list(calc_data_sub.groupby(['day'])))
+        kruskal_raw = stats.kruskal(cd[3][var], cd[7][var], cd[14][var], cd[21][var], cd[28][var], cd[35][var], cd[42][var])
+        kruskal_out = pd.DataFrame({'joint':[joint_name], 'p_value':[kruskal_raw[1]], 'group':[study_group], 'variable':[var]})
+        return kruskal_out
 
-    data_list = [kruskal_test(joint) for joint in joints]
+    return pd.concat([kruskal_test(joint) for joint in joints], axis=0, ignore_index=True)
 
-    return len(data_list)
-
-
-joint_comparison_within_group(df_stat_aggregate, 'sci', 'x')
-
-
-
+pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'x') for group in study_groups], axis=0, ignore_index=True)
+pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'y') for group in study_groups], axis=0, ignore_index=True)
 
 #För inter knee distance också (between groups and within group)
 
+def between_groups_within_time_point_knee(data_set, var):
+    data_set_dict = dict(list(data_set.groupby(['day'])))
+    def kruskal_test(day):
+        cd = dict(list(data_set_dict[day].groupby(['group'])))
+        kruskal_raw = stats.kruskal(cd['sci'][var], cd['sci_medium'][var], cd['sci_msc'][var])
+        return pd.DataFrame({'day':[day], 'p_value':[kruskal_raw[1]]})
+
+    return pd.concat([kruskal_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
+
+between_groups_within_time_point_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
 
 
+def within_group_over_time_knee(data_set, var):
+    data_set_dict = dict(list(data_set.groupby(['group'])))
+    def kruskal_test(group):
+        cd = dict(list(data_set_dict[group].groupby(['day'])))
+        kruskal_raw = stats.kruskal(cd[3][var], cd[7][var], cd[14][var], cd[21][var], cd[28][var], cd[35][var], cd[42][var])
+        return pd.DataFrame({'group':[group], 'p_value':[kruskal_raw[1]]})
 
-#0. Mixed ANOVA of time and group (iliac crest height and inter knee distance over time)
-    #-> r2py
-    #add to time overview plots
-#A2. Post hoc analysis of multiple group analysis
+    return pd.concat([kruskal_test(group) for group in study_groups], axis=0, ignore_index=True)
+
+within_group_over_time_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
+
+############################################################### POST HOC ANALYSIS OF MULTIPLE GROUP COMPARISONS ###########################################################################
+import posthocs as ph
+
+def between_group_within_time_points_post_hoc(data_set, joint, var):
+    data_set = data_set[data_set['joint_name']==joint]
+    data_set_dict = dict(list(data_set.groupby(['day'])))
+    def pair_wise_test(day):
+        pair_wise_raw = ph.posthoc_mannwhitney(data_set_dict[day], val_col=var, group_col='group')
+        pair_wise_raw['index'], pair_wise_raw['day'], pair_wise_raw['joint']  = pair_wise_raw.index, day, joint
+        pair_wise_raw = pair_wise_raw.melt(id_vars=['index', 'day', 'joint'])
+        pair_wise_raw = pair_wise_raw[~(pair_wise_raw['index']==pair_wise_raw['variable'])]
+        pair_wise_raw['index'] = pair_wise_raw['index']+'-'+pair_wise_raw['variable']
+        pair_wise_raw.drop(['variable'], axis=1, inplace=True)
+        pair_wise_raw.drop_duplicates(subset='value', inplace=True)
+        pair_wise_raw = pair_wise_raw.rename(columns={'value':'p_value'})
+        return pair_wise_raw
+
+    return pd.concat([pair_wise_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
+
+pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'y') for joint in joints], axis=0, ignore_index=True)
+pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'x') for joint in joints], axis=0, ignore_index=True)
 
 
+def between_group_within_time_points_post_hoc_knee(data_set, var):
+    data_set_dict = dict(list(data_set.groupby(['day'])))
+    def pair_wise_test(day):
+        pair_wise_raw = ph.posthoc_mannwhitney(data_set_dict[day], val_col=var, group_col='group')
+        pair_wise_raw['index'], pair_wise_raw['day']  = pair_wise_raw.index, day
+        pair_wise_raw = pair_wise_raw.melt(id_vars=['index', 'day'])
+        pair_wise_raw = pair_wise_raw[~(pair_wise_raw['index']==pair_wise_raw['variable'])]
+        pair_wise_raw['index'] = pair_wise_raw['index']+'-'+pair_wise_raw['variable']
+        pair_wise_raw.drop(['variable'], axis=1, inplace=True)
+        pair_wise_raw.drop_duplicates(subset='value', inplace=True)
+        pair_wise_raw = pair_wise_raw.rename(columns={'value':'p_value'})
+        return pair_wise_raw
 
+    return pd.concat([pair_wise_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
 
-
-
+between_group_within_time_points_post_hoc_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
 
 #Steady state analysis (iliac crest height and inter knee distance)
 def steady_state_random_sampler(data_set, study_group, day_start):
@@ -209,6 +257,50 @@ multiple_group_p_value_y = pd.concat([multiple_group_comparison_bootstrap_caller
 p_value_x = multiple_group_p_value_x.groupby(['joint_name']).mean()
 p_value_y = multiple_group_p_value_y.groupby(['joint_name']).mean()
 
+#Post hoc test in steady state (boostrapped)
+def steady_state_joint_post_hoc(data_set, joint, min_day, var):
+    data_set = data_set.loc[(data_set['joint_name']==joint) & (data_set['day']>=min_day)]
+
+    def post_hoc_test():
+        pair_wise_raw = ph.posthoc_mannwhitney(data_set, val_col=var, group_col='group')
+        pair_wise_raw['index'] = pair_wise_raw.index
+        pair_wise_raw = pair_wise_raw.melt(id_vars=['index'])
+        pair_wise_raw = pair_wise_raw[~(pair_wise_raw['index'] == pair_wise_raw['variable'])]
+        pair_wise_raw['index'] = pair_wise_raw['index'] + '-' + pair_wise_raw['variable']
+        pair_wise_raw.drop(['variable'], axis=1, inplace=True)
+        pair_wise_raw.drop_duplicates(subset='value', inplace=True)
+        pair_wise_raw = pair_wise_raw.rename(columns={'value': 'p_value'})
+        pair_wise_raw['variable'] = var
+        pair_wise_raw['joint'] = joint
+        return pair_wise_raw
+
+    pair_wise_boot_data = pd.concat([post_hoc_test() for _ in range(100)], axis=0, ignore_index=True)
+    return pair_wise_boot_data
+
+post_hoc_joint_x = pd.concat([steady_state_joint_post_hoc(df_stat_aggregate, joint, 28, 'x') for joint in joints], axis=0, ignore_index=True)
+post_hoc_joint_y = pd.concat([steady_state_joint_post_hoc(df_stat_aggregate, joint, 28, 'y') for joint in joints], axis=0, ignore_index=True)
+
+post_hoc_joint_x.groupby(['index', 'variable', 'joint'], as_index=False).mean()
+post_hoc_joint_y.groupby(['index', 'variable', 'joint'], as_index=False).mean()
+
+def steady_state_joint_post_hoc_knee(data_set, min_day):
+    data_set_calc = data_set[data_set['day']>=min_day]
+    def post_hoc_test():
+        pair_wise_raw = ph.posthoc_mannwhitney(data_set_calc, val_col='inter_knee_distance_adjust', group_col='group')
+        pair_wise_raw['index'] = pair_wise_raw.index
+        pair_wise_raw = pair_wise_raw.melt(id_vars=['index'])
+        pair_wise_raw = pair_wise_raw[~(pair_wise_raw['index'] == pair_wise_raw['variable'])]
+        pair_wise_raw['index'] = pair_wise_raw['index'] + '-' + pair_wise_raw['variable']
+        pair_wise_raw.drop(['variable'], axis=1, inplace=True)
+        pair_wise_raw.drop_duplicates(subset='value', inplace=True)
+        pair_wise_raw = pair_wise_raw.rename(columns={'value': 'p_value'})
+        return pair_wise_raw
+
+    return pd.concat([post_hoc_test() for _ in range(1000)], axis=0, ignore_index=True)
+
+post_hoc_joint_knee = steady_state_joint_post_hoc_knee(df_stat_aggregate_knee, 28)
+post_hoc_joint_knee.groupby(['index']).mean()
+
 #Dictionaries for adding p-values and joint names to plot
 position_x_dictionary = {'Ankle':[2.7, 1.6], 'Iliac crest':[0.05, 4.1], 'Knee':[0.2, 1.1], 'Toe':[1.6, 0.45], 'Trochanter major':[2.2, 3.4]}
 position_y_dictionary = {'Ankle':[2.7, 1.5], 'Iliac crest':[0.05, 4], 'Knee':[0.2, 1.0], 'Toe':[1.6, 0.35], 'Trochanter major':[2.2, 3.3]}
@@ -245,7 +337,6 @@ def fancy_side_view_bootstrap_plotter(data_set, study_group):
 def line_plotter(data_summary, study_group, joint_comb):
     plot_data_summary = data_summary[(data_summary['group'] == study_group) & data_summary['joint_name'].isin(joint_comb)]
     plt.plot('x', 'y', data=plot_data_summary, color=group_2_color(study_group), linewidth=4, linestyle='--')
-
 
 #C. Calling plot functions & saving
 [fancy_side_view_bootstrap_plotter(df_bootstrap, group) for group in study_groups]
