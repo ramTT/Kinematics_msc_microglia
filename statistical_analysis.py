@@ -72,12 +72,12 @@ def joint_comparison_between_group(data_set, plot_day, var_type):
     def kruskal_test(joint_name):
         data_set_dict = dict(list(data_set[data_set['joint_name']==joint_name].groupby(['group'])))
         kruskal_out = stats.kruskal(data_set_dict['sci'][var_type], data_set_dict['sci_medium'][var_type], data_set_dict['sci_msc'][var_type])
-        return (plot_day, joint_name, kruskal_out[1])
+        return (plot_day, joint_name, var_type, kruskal_out[1])
 
-    return pd.DataFrame([kruskal_test(joint) for joint in joints], columns=['day','joint', 'p_value'])
+    return pd.DataFrame([kruskal_test(joint) for joint in joints], columns=['day','joint', 'var_type','p_value'])
 
-pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'x') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
-pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'y') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
+within_day_group_comp_joints_x = pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'x') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
+within_day_group_comp_joints_y = pd.concat([joint_comparison_between_group(df_stat_aggregate, day, 'y') for day in list(df_stat_aggregate['day'].unique())], axis=0, ignore_index=True)
 
 #A2. Comparing within group over time for each joint
 def joint_comparison_within_group(data_set, study_group, var):
@@ -91,8 +91,8 @@ def joint_comparison_within_group(data_set, study_group, var):
 
     return pd.concat([kruskal_test(joint) for joint in joints], axis=0, ignore_index=True)
 
-pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'x') for group in study_groups], axis=0, ignore_index=True)
-pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'y') for group in study_groups], axis=0, ignore_index=True)
+within_group_between_day_joints_x = pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'x') for group in study_groups], axis=0, ignore_index=True)
+within_group_between_day_joints_y = pd.concat([joint_comparison_within_group(df_stat_aggregate, group, 'y') for group in study_groups], axis=0, ignore_index=True)
 
 #För inter knee distance också (between groups and within group)
 
@@ -105,8 +105,7 @@ def between_groups_within_time_point_knee(data_set, var):
 
     return pd.concat([kruskal_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
 
-between_groups_within_time_point_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
-
+within_day_between_groups_knee = between_groups_within_time_point_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
 
 def within_group_over_time_knee(data_set, var):
     data_set_dict = dict(list(data_set.groupby(['group'])))
@@ -117,7 +116,7 @@ def within_group_over_time_knee(data_set, var):
 
     return pd.concat([kruskal_test(group) for group in study_groups], axis=0, ignore_index=True)
 
-within_group_over_time_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
+within_group_between_day_knee = within_group_over_time_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
 
 ############################################################### POST HOC ANALYSIS OF MULTIPLE GROUP COMPARISONS ###########################################################################
 import posthocs as ph
@@ -134,13 +133,13 @@ def between_group_within_time_points_post_hoc(data_set, joint, var):
         pair_wise_raw.drop(['variable'], axis=1, inplace=True)
         pair_wise_raw.drop_duplicates(subset='value', inplace=True)
         pair_wise_raw = pair_wise_raw.rename(columns={'value':'p_value'})
+        pair_wise_raw['var'] = var
         return pair_wise_raw
 
     return pd.concat([pair_wise_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
 
-pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'y') for joint in joints], axis=0, ignore_index=True)
-pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'x') for joint in joints], axis=0, ignore_index=True)
-
+within_day_between_group_joints_post_hoc_x = pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'x') for joint in joints], axis=0, ignore_index=True)
+within_day_between_group_joints_post_hoc_y = pd.concat([between_group_within_time_points_post_hoc(df_stat_aggregate, joint, 'y') for joint in joints], axis=0, ignore_index=True)
 
 def between_group_within_time_points_post_hoc_knee(data_set, var):
     data_set_dict = dict(list(data_set.groupby(['day'])))
@@ -157,7 +156,7 @@ def between_group_within_time_points_post_hoc_knee(data_set, var):
 
     return pd.concat([pair_wise_test(day) for day in list(data_set_dict.keys())], axis=0, ignore_index=True)
 
-between_group_within_time_points_post_hoc_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
+within_day_between_group_post_hoc_knee= between_group_within_time_points_post_hoc_knee(df_stat_aggregate_knee, 'inter_knee_distance_adjust')
 
 #Steady state analysis (iliac crest height and inter knee distance)
 def steady_state_random_sampler(data_set, study_group, day_start):
@@ -280,8 +279,8 @@ def steady_state_joint_post_hoc(data_set, joint, min_day, var):
 post_hoc_joint_x = pd.concat([steady_state_joint_post_hoc(df_stat_aggregate, joint, 28, 'x') for joint in joints], axis=0, ignore_index=True)
 post_hoc_joint_y = pd.concat([steady_state_joint_post_hoc(df_stat_aggregate, joint, 28, 'y') for joint in joints], axis=0, ignore_index=True)
 
-post_hoc_joint_x.groupby(['index', 'variable', 'joint'], as_index=False).mean()
-post_hoc_joint_y.groupby(['index', 'variable', 'joint'], as_index=False).mean()
+post_hoc_steady_state_mean_joints_x = post_hoc_joint_x.groupby(['index', 'variable', 'joint'], as_index=False).mean()
+post_hoc_steady_state_mean_joints_y = post_hoc_joint_y.groupby(['index', 'variable', 'joint'], as_index=False).mean()
 
 def steady_state_joint_post_hoc_knee(data_set, min_day):
     data_set_calc = data_set[data_set['day']>=min_day]
@@ -299,7 +298,7 @@ def steady_state_joint_post_hoc_knee(data_set, min_day):
     return pd.concat([post_hoc_test() for _ in range(1000)], axis=0, ignore_index=True)
 
 post_hoc_joint_knee = steady_state_joint_post_hoc_knee(df_stat_aggregate_knee, 28)
-post_hoc_joint_knee.groupby(['index']).mean()
+post_hoc_joint_knee_mean = post_hoc_joint_knee.groupby(['index']).mean()
 
 #Dictionaries for adding p-values and joint names to plot
 position_x_dictionary = {'Ankle':[2.7, 1.6], 'Iliac crest':[0.05, 4.1], 'Knee':[0.2, 1.1], 'Toe':[1.6, 0.45], 'Trochanter major':[2.2, 3.4]}
@@ -390,12 +389,14 @@ def inter_knee_distance_plot(data_bootstrap, data_line, study_group):
     #Plot adjust
     sns.despine(left=True)
     plt.xlabel('Distance [x]', size=15, fontweight='bold')
-    plt.xticks(list(np.arange(0, 4.5, 0.25)))
-    plt.yticks(list(np.arange(0, 4.5, 0.5)))
+    plt.xticks(list(np.arange(0, 0.6, 0.05)))
+    plt.yticks(list(np.arange(0, 3, 0.25)))
     plt.ylim([0.9, 2.6])
     plt.xlim([0, 0.55])
 
 [inter_knee_distance_plot(df_bootstrap_knee, df_line_data_knee, group) for group in study_groups]
+#plt.savefig('plot_fancy_bottom_view_bootstrap.svg', dpi=1000)
+
 ########################################################################### CORRELATION PLOT ##############################################################################
 #Correlation between inter knee distance, height (iliac crest & trochanter major)
 
@@ -429,3 +430,29 @@ def correlation_builder(data_set):
     return pd.concat([correlation_sub('iliac'), correlation_sub('trochanter')], axis=0)
 
 correlation_builder(correlation_data)
+
+###Exporting tables as CSV
+#1. Within group within days joints
+pd.concat([within_day_group_comp_joints_x, within_day_group_comp_joints_y], axis=0, ignore_index=True).to_csv('within_day_group_comp_joints.csv')
+#2. Within group between day joints
+pd.concat([within_group_between_day_joints_x, within_group_between_day_joints_y], axis=0, ignore_index=True).to_csv('within_group_between_days_joints.csv')
+#3. Within day between groups knee
+within_day_between_groups_knee.to_csv('within_day_between_group_knee.csv')
+#4. Within group between day knee
+within_group_between_day_knee.to_csv('within_group_between_day_knee.csv')
+#5. Within day between group post hoc joints
+pd.concat([within_day_between_group_joints_post_hoc_x, within_day_between_group_joints_post_hoc_y], axis=0, ignore_index=).to_csv('within_day_between_group_post_hoc_joints.csv')
+#6. Within day between group post hoc knee
+within_day_between_group_post_hoc_knee.to_csv('within_day_between_group_post_hoc_knee.csv')
+#7. Steady state multiple group test joints
+p_value_x['var'], p_value_x['joint_name'] = 'x', p_value_x.index
+p_value_y['var'], p_value_y['joint_name'] = 'y', p_value_y.index
+pd.concat([p_value_x, p_value_y], axis=0, ignore_index=True).to_csv('steady_state_multiple_group_test_joints.csv')
+#8. Steady state post hoc test joints
+pd.concat([post_hoc_steady_state_mean_joints_x, post_hoc_steady_state_mean_joints_y], axis=0, ignore_index=True).to_csv('steady_state_post_hoc_test_joints.csv')
+#9. Steady state multiple group test knee
+knee_kruskal_p.mean().to_csv('steady_state_multiple_group_test_knee.csv')
+#10. Steady state post hoc test knee
+post_hoc_joint_knee_mean.to_csv('steady_state_post_hoc_test_knee.csv')
+#11. P-values for spearman & kendall correlation coefficients
+correlation_builder(correlation_data).to_csv('correlation_p_values.csv')
